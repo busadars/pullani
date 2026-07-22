@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Girls Fest '26 - Management Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Toast Notification Box -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-200%] transition-transform duration-300 bg-pink-600 text-white px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-2">
+        <span id="toastMsg">Action completed successfully!</span>
+    </div>
+
+    <!-- App Root Container -->
+    <div id="app" class="flex-1 flex flex-col">
+        <!-- Dynamic content injected via JS -->
+    </div>
+
+    <script>
+        const STORAGE_KEY = "aura_girls_fest_data_v1";
+
+        let defaultData = {
+            loggedInTeam: null,
+            teams: {
+                teamA: { id: 'teamA', name: 'Al-Shams (Team Alpha)', pass: 'shams26', color: 'rose', points: 120 },
+                teamB: { id: 'teamB', name: 'Al-Qamar (Team Beta)', pass: 'qamar26', color: 'indigo', points: 145 }
+            },
+            candidates: [
+                { id: 1, name: 'Fathima Zohra', team: 'teamA', category: 'Senior', regNo: 'S001' },
+                { id: 2, name: 'Aysha Mariyam', team: 'teamB', category: 'Junior', regNo: 'J001' },
+                { id: 3, name: 'Safwana K.', team: 'teamA', category: 'Junior', regNo: 'J002' }
+            ],
+            programmes: [
+                // 19 Junior Programmes
+                { id: 'J1', name: 'Junior Oppana', type: 'stage', category: 'Junior', code: 'J01' },
+                { id: 'J2', name: 'Junior Margamkali', type: 'stage', category: 'Junior', code: 'J02' },
+                { id: 'J3', name: 'Junior Duff Muttu', type: 'stage', category: 'Junior', code: 'J03' },
+                { id: 'J4', name: 'Junior Monoact', type: 'stage', category: 'Junior', code: 'J04' },
+                { id: 'J5', name: 'Junior Mappilappattu', type: 'stage', category: 'Junior', code: 'J05' },
+                { id: 'J6', name: 'Junior Light Music', type: 'stage', category: 'Junior', code: 'J06' },
+                { id: 'J7', name: 'Junior Folk Dance', type: 'stage', category: 'Junior', code: 'J07' },
+                { id: 'J8', name: 'Junior Classical Dance', type: 'stage', category: 'Junior', code: 'J08' },
+                { id: 'J9', name: 'Junior Recitation (Arabic)', type: 'nonstage', category: 'Junior', code: 'J09' },
+                { id: 'J10', name: 'Junior Recitation (English)', type: 'nonstage', category: 'Junior', code: 'J10' },
+                { id: 'J11', name: 'Junior Recitation (Malayalam)', type: 'nonstage', category: 'Junior', code: 'J11' },
+                { id: 'J12', name: 'Junior Essay Writing (English)', type: 'nonstage', category: 'Junior', code: 'J12' },
+                { id: 'J13', name: 'Junior Essay Writing (Arabic)', type: 'nonstage', category: 'Junior', code: 'J13' },
+                { id: 'J14', name: 'Junior Versification (Malayalam)', type: 'nonstage', category: 'Junior', code: 'J14' },
+                { id: 'J15', name: 'Junior Pencil Drawing', type: 'nonstage', category: 'Junior', code: 'J15' },
+                { id: 'J16', name: 'Junior Water Painting', type: 'nonstage', category: 'Junior', code: 'J16' },
+                { id: 'J17', name: 'Junior Quiz', type: 'nonstage', category: 'Junior', code: 'J17' },
+                { id: 'J18', name: 'Junior Story Telling', type: 'stage', category: 'Junior', code: 'J18' },
+                { id: 'J19', name: 'Junior Spot Photography', type: 'nonstage', category: 'Junior', code: 'J19' },
+
+                // 21 Senior Programmes
+                { id: 'S1', name: 'Senior Oppana', type: 'stage', category: 'Senior', code: 'S01' },
+                { id: 'S2', name: 'Senior Margamkali', type: 'stage', category: 'Senior', code: 'S02' },
+                { id: 'S3', name: 'Senior Duff Muttu', type: 'stage', category: 'Senior', code: 'S03' },
+                { id: 'S4', name: 'Senior Cinematic Dance', type: 'stage', category: 'Senior', code: 'S04' },
+                { id: 'S5', name: 'Senior Thiruvathirakali', type: 'stage', category: 'Senior', code: 'S05' },
+                { id: 'S6', name: 'Senior Mappilappattu', type: 'stage', category: 'Senior', code: 'S06' },
+                { id: 'S7', name: 'Senior Classical Music', type: 'stage', category: 'Senior', code: 'S07' },
+                { id: 'S8', name: 'Senior Ghazal', type: 'stage', category: 'Senior', code: 'S08' },
+                { id: 'S9', name: 'Senior Monoact', type: 'stage', category: 'Senior', code: 'S09' },
+                { id: 'S10', name: 'Senior Drama / Skit', type: 'stage', category: 'Senior', code: 'S10' },
+                { id: 'S11', name: 'Senior Speech (English)', type: 'stage', category: 'Senior', code: 'S11' },
+                { id: 'S12', name: 'Senior Speech (Arabic)', type: 'stage', category: 'Senior', code: 'S12' },
+                { id: 'S13', name: 'Senior Essay Writing (English)', type: 'nonstage', category: 'Senior', code: 'S13' },
+                { id: 'S14', name: 'Senior Essay Writing (Urdu)', type: 'nonstage', category: 'Senior', code: 'S14' },
+                { id: 'S15', name: 'Senior Versification (English)', type: 'nonstage', category: 'Senior', code: 'S15' },
+                { id: 'S16', name: 'Senior Pencil Drawing', type: 'nonstage', category: 'Senior', code: 'S16' },
+                { id: 'S17', name: 'Senior Poster Designing', type: 'nonstage', category: 'Senior', code: 'S17' },
+                { id: 'S18', name: 'Senior Quiz Competition', type: 'nonstage', category: 'Senior', code: 'S18' },
+                { id: 'S19', name: 'Senior Aksharaslokam', type: 'stage', category: 'Senior', code: 'S19' },
+                { id: 'S20', name: 'Senior Debate', type: 'stage', category: 'Senior', code: 'S20' },
+                { id: 'S21', name: 'Senior Calligraphy', type: 'nonstage', category: 'Senior', code: 'S21' }
+            ]
+        };
+
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = message;
+            toast.classList.remove('translate-y-[-200%]');
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-200%]');
+            }, 3000);
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.loggedInTeam) {
+                app.innerHTML = renderLoginScreen();
+            } else {
+                app.innerHTML = renderDashboard();
+            }
+        }
+
+        function renderLoginScreen() {
+            return `
+                <div class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950">
+                    <div class="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 backdrop-blur-xl">
+                        <div class="text-center mb-8">
+                            <span class="bg-pink-500/10 text-pink-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-pink-500/20">Girls Arts Fest 2026</span>
+                            <h1 class="text-3xl font-extrabold text-white mt-3">Aura Fest Portal</h1>
+                            <p class="text-slate-400 text-sm mt-1">Sign in with your team credentials to manage candidates & programmes.</p>
+                        </div>
+
+                        <form onsubmit="handleLogin(event)" class="space-y-5">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Select Account / Team</label>
+                                <select id="loginTeam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition">
+                                    <option value="teamA">Al-Shams (Team Alpha) - Pass: shams26</option>
+                                    <option value="teamB">Al-Qamar (Team Beta) - Pass: qamar26</option>
+                                    <option value="admin">Main Admin - Pass: admin26</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Password</label>
+                                <input type="password" id="loginPass" required placeholder="Enter password" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition">
+                            </div>
+
+                            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-bold rounded-xl shadow-lg shadow-pink-600/30 transition transform active:scale-95">
+                                Secure Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const teamKey = document.getElementById('loginTeam').value;
+            const pass = document.getElementById('loginPass').value;
+
+            let valid = false;
+            if (teamKey === 'teamA' && pass === state.teams.teamA.pass) valid = true;
+            if (teamKey === 'teamB' && pass === state.teams.teamB.pass) valid = true;
+            if (teamKey === 'admin' && pass === 'admin26') valid = true;
+
+            if (valid) {
+                state.loggedInTeam = teamKey;
+                saveState();
+                showToast("Logged in successfully!");
+                render();
+            } else {
+                showToast("Invalid password! Please check credentials.");
+            }
+        }
+
+        function logout() {
+            state.loggedInTeam = null;
+            saveState();
+            showToast("Logged out successfully.");
+            render();
+        }
+
+        function renderDashboard() {
+            let userTitle = state.loggedInTeam === 'admin' ? 'Main Administrator' : state.teams[state.loggedInTeam].name;
+            
+            return `
+                <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-pink-600/20 border border-pink-500/30 flex items-center justify-center text-pink-400 font-bold">✨</div>
+                        <div>
+                            <h2 class="font-bold text-white text-lg">Aura Fest Management</h2>
+                            <p class="text-xs text-pink-400">Logged in as: <span class="font-semibold">${userTitle}</span></p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold transition border border-slate-700">
+                        Logout
+                    </button>
+                </header>
+
+                <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Junior Programmes</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1">19</h3>
+                            <span class="text-xs text-pink-400 mt-2 inline-block">Stage & Non-Stage</span>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Senior Programmes</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1">21</h3>
+                            <span class="text-xs text-indigo-400 mt-2 inline-block">Stage & Non-Stage</span>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Candidates</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1">${state.candidates.length}</h3>
+                            <span class="text-xs text-emerald-400 mt-2 inline-block">Registered Participants</span>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Score Status</p>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-sm font-medium text-rose-400">Shams: ${state.teams.teamA.points}</span>
+                                <span class="text-sm font-medium text-indigo-400">Qamar: ${state.teams.teamB.points}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                            <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3">👤 Register New Candidate</h3>
+                            <form onsubmit="handleCandidateSubmit(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Candidate Name</label>
+                                    <input type="text" id="candName" required placeholder="e.g. Fathima Sana" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Team</label>
+                                    <select id="candTeam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500">
+                                        <option value="teamA">Al-Shams (Team Alpha)</option>
+                                        <option value="teamB">Al-Qamar (Team Beta)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Category</label>
+                                    <select id="candCategory" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500">
+                                        <option value="Junior">Junior (19 Programmes)</option>
+                                        <option value="Senior">Senior (21 Programmes)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Chest / Reg No</label>
+                                    <input type="text" id="candRegNo" required placeholder="e.g. J104 or S202" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500">
+                                </div>
+                                <button type="submit" class="w-full py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl transition shadow-md">Add Candidate</button>
+                            </form>
+                        </div>
+
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                                <h3 class="text-lg font-bold text-white">📋 Fest Programmes (Junior & Senior)</h3>
+                                <div class="flex items-center space-x-2">
+                                    <select id="filterCat" onchange="render()" class="bg-slate-950 border border-slate-700 text-xs text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none">
+                                        <option value="all">All Categories</option>
+                                        <option value="Junior">Junior (19)</option>
+                                        <option value="Senior">Senior (21)</option>
+                                    </select>
+                                    <select id="filterType" onchange="render()" class="bg-slate-950 border border-slate-700 text-xs text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none">
+                                        <option value="all">Stage & Non-Stage</option>
+                                        <option value="stage">Stage Only</option>
+                                        <option value="nonstage">Non-Stage Only</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-slate-950 text-slate-400 uppercase text-xs sticky top-0">
+                                        <tr>
+                                            <th class="p-3">Code</th>
+                                            <th class="p-3">Programme Name</th>
+                                            <th class="p-3">Category</th>
+                                            <th class="p-3">Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        ${renderProgrammesTable()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                        <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3">🏅 Registered Candidates Directory</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${state.candidates.map(c => `
+                                <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                                    <div>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20">${c.regNo}</span>
+                                        <h4 class="font-bold text-white mt-1">${c.name}</h4>
+                                        <p class="text-xs text-slate-400">${state.teams[c.team]?.name || c.team} • ${c.category}</p>
+                                    </div>
+                                    ${state.loggedInTeam === 'admin' ? `<button onclick="deleteCandidate(${c.id})" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 bg-rose-950/30 rounded border border-rose-900/50">Delete</button>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function renderProgrammesTable() {
+            const catFilter = document.getElementById('filterCat') ? document.getElementById('filterCat').value : 'all';
+            const typeFilter = document.getElementById('filterType') ? document.getElementById('filterType').value : 'all';
+
+            let filtered = state.programmes.filter(p => {
+                if (catFilter !== 'all' && p.category !== catFilter) return false;
+                if (typeFilter !== 'all' && p.type !== typeFilter) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                return `<tr><td colspan="4" class="p-4 text-center text-slate-500">No programmes found matching filters.</td></tr>`;
+            }
+
+            return filtered.map(p => `
+                <tr class="hover:bg-slate-950/50 transition">
+                    <td class="p-3 font-mono text-xs text-pink-400">${p.code}</td>
+                    <td class="p-3 font-medium text-white">${p.name}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded text-xs ${p.category === 'Junior' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}">${p.category}</span></td>
+                    <td class="p-3 uppercase text-xs tracking-wider text-slate-400 font-semibold">${p.type}</td>
+                </tr>
+            `).join('');
+        }
+
+        function handleCandidateSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('candName').value;
+            const team = document.getElementById('candTeam').value;
+            const category = document.getElementById('candCategory').value;
+            const regNo = document.getElementById('candRegNo').value;
+
+            const newCand = {
+                id: Date.now(),
+                name,
+                team,
+                category,
+                regNo
+            };
+
+            state.candidates.push(newCand);
+            saveState();
+            showToast("Candidate successfully registered!");
+            render();
+        }
+
+        function deleteCandidate(id) {
+            state.candidates = state.candidates.filter(c => c.id !== id);
+            saveState();
+            showToast("Candidate removed.");
+            render();
+        }
+
+        window.onload = function() {
+            render();
+        };
+    </script>
+</body>
+</html>
+
