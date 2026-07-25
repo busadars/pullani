@@ -1,524 +1,571 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { Trophy, Users, LayoutDashboard, ClipboardList, LogOut, Trash2, Award, PlusCircle, ShieldAlert } from 'lucide-react';
-
-// --- FIREBASE INITIALIZATION ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'aura-fest-default-id';
-
-// --- STATIC DATA ---
-const TEAMS = {
-  teamA: { id: 'teamA', name: 'Al-Shams (Team Alpha)', pass: 'shams26', color: 'bg-rose-500', text: 'text-rose-500', border: 'border-rose-500' },
-  teamB: { id: 'teamB', name: 'Al-Qamar (Team Beta)', pass: 'qamar26', color: 'bg-indigo-500', text: 'text-indigo-500', border: 'border-indigo-500' },
-  admin: { id: 'admin', name: 'Main Admin', pass: 'admin26', color: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500' }
-};
-
-const PROGRAMS = [
-  // Junior
-  { id: 'j1', name: 'ഖിറാഅത്ത്', category: 'Junior' },
-  { id: 'j2', name: 'മദ്ഹ് സോങ്', category: 'Junior' },
-  { id: 'j3', name: 'സിംഗിൾ സോങ് (മദ്ഹ്)', category: 'Junior' },
-  { id: 'j4', name: 'കഥ പറച്ചിൽ', category: 'Junior' },
-  { id: 'j5', name: 'ഗ്രൂപ്പ് സോങ്', category: 'Junior' },
-  { id: 'j6', name: 'പെൻസിൽ ഡ്രോയിംഗ്', category: 'Junior' },
-  { id: 'j7', name: 'ക്വിസ്', category: 'Junior' },
-  { id: 'j8', name: 'കവിതാലാപനം', category: 'Junior' },
-  { id: 'j9', name: 'കയ്യെഴുത്ത്', category: 'Junior' },
-  { id: 'j10', name: 'ചിത്ര രചന', category: 'Junior' },
-  { id: 'j11', name: 'കൊളാഷ്', category: 'Junior' },
-  { id: 'j12', name: 'സ്പെല്ലിംഗ് ബി', category: 'Junior' },
-  { id: 'j13', name: 'കാലിഗ്രാഫി', category: 'Junior' },
-  { id: 'j14', name: 'അടിക്കുറിപ്പ്', category: 'Junior' },
-  
-  // Senior
-  { id: 's1', name: 'ഖിറാഅത്ത്', category: 'Senior' },
-  { id: 's2', name: 'മാലപ്പാട്ട്', category: 'Senior' },
-  { id: 's3', name: 'പ്രസംഗം (മലയാളം)', category: 'Senior' },
-  { id: 's4', name: 'ഇംഗ്ലീഷ് പ്രസംഗം', category: 'Senior' },
-  { id: 's5', name: 'പെയിന്റിംഗ്', category: 'Senior' },
-  { id: 's6', name: 'മെമ്മറിടെസ്റ്റ്', category: 'Senior' },
-  { id: 's7', name: 'മെഗസിൻ', category: 'Senior' },
-  { id: 's8', name: 'പതപയറ്റ്', category: 'Senior' },
-  { id: 's9', name: 'എഴുത്ത്', category: 'Senior' },
-  { id: 's10', name: 'പത്രനിർമ്മാണം', category: 'Senior' },
-  { id: 's11', name: 'നാനോ ലിറ്ററേച്ചർ', category: 'Senior' },
-  { id: 's12', name: 'തലവാചക നിർമ്മാണം', category: 'Senior' },
-
-  // General
-  { id: 'g1', name: 'ബുർദ', category: 'General' },
-  { id: 'g2', name: 'മെമ്മറിടെസ്റ്റ്', category: 'General' },
-  { id: 'g3', name: 'ഗ്രന്ഥ വായന', category: 'General' }
-];
-
-export default function App() {
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [sessionRole, setSessionRole] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // DB State
-  const [candidates, setCandidates] = useState([]);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  // UI State
-  const [newCand, setNewCand] = useState({ name: '', team: 'teamA', category: 'Junior', regNo: '' });
-  const [resultForm, setResultForm] = useState({ programmeId: '', first: '', second: '', third: '' });
-
-  // 1. Initialize Firebase Auth
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error("Auth Error:", err);
-        setErrorMsg("Failed to connect to secure server.");
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Fetch Data (Only when Auth is ready)
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const candidatesRef = collection(db, 'artifacts', appId, 'public', 'data', 'candidates');
-    const resultsRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
-
-    const unsubCandidates = onSnapshot(candidatesRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(data);
-      setLoading(false);
-    }, (err) => console.error("Candidates fetch error:", err));
-
-    const unsubResults = onSnapshot(resultsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setResults(data);
-    }, (err) => console.error("Results fetch error:", err));
-
-    return () => {
-      unsubCandidates();
-      unsubResults();
-    };
-  }, [firebaseUser]);
-
-  // --- UPDATED CALCULATION LOGIC ---
-  const teamScores = useMemo(() => {
-    let scores = { teamA: 0, teamB: 0 };
-    results.forEach(res => {
-      const c1 = candidates.find(c => c.id === res.first);
-      const c2 = candidates.find(c => c.id === res.second);
-      const c3 = candidates.find(c => c.id === res.third);
-
-      // Points: 1st = 10, 2nd = 5, 3rd = 3
-      if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
-      if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
-      if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
-    });
-    return scores;
-  }, [results, candidates]);
-
-  // --- HANDLERS ---
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const role = e.target.role.value;
-    const pass = e.target.password.value;
-    
-    if (TEAMS[role] && TEAMS[role].pass === pass) {
-      setSessionRole(role);
-      setErrorMsg("");
-      setNewCand(prev => ({ ...prev, team: role === 'admin' ? 'teamA' : role }));
-    } else {
-      setErrorMsg("Incorrect Password! Please try again.");
-    }
-  };
-
-  const handleLogout = () => {
-    setSessionRole(null);
-    setActiveTab('dashboard');
-  };
-
-  const handleAddCandidate = async (e) => {
-    e.preventDefault();
-    if (!firebaseUser) return;
-    if (!newCand.name || !newCand.regNo) return;
-
-    const teamToSave = sessionRole === 'admin' ? newCand.team : sessionRole;
-
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'candidates'), {
-        name: newCand.name,
-        team: teamToSave,
-        category: newCand.category,
-        regNo: newCand.regNo,
-        timestamp: Date.now()
-      });
-      setNewCand({ name: '', team: sessionRole === 'admin' ? 'teamA' : sessionRole, category: 'Junior', regNo: '' });
-      alert("Candidate Added Successfully!");
-    } catch (err) {
-      alert("Error saving to database.");
-    }
-  };
-
-  const handleDeleteCandidate = async (id) => {
-    if (sessionRole !== 'admin') return alert("Only admins can delete.");
-    if (!window.confirm("Are you sure you want to delete this candidate?")) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'candidates', id));
-    } catch (err) {
-      alert("Delete failed.");
-    }
-  };
-
-  const handleAddResult = async (e) => {
-    e.preventDefault();
-    if (sessionRole !== 'admin') return;
-    if (!resultForm.programmeId || !resultForm.first) return alert("Select at least 1st place.");
-
-    try {
-      const resultDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'results', resultForm.programmeId);
-      await setDoc(resultDocRef, {
-        programmeId: resultForm.programmeId,
-        first: resultForm.first,
-        second: resultForm.second,
-        third: resultForm.third,
-        timestamp: Date.now()
-      });
-      setResultForm({ programmeId: '', first: '', second: '', third: '' });
-      alert("Result Published Successfully!");
-    } catch (err) {
-      alert("Error publishing result.");
-    }
-  };
-
-
-  // --- RENDERERS ---
-  if (!sessionRole) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-slate-200">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-white mb-2">Aura Fest Portal</h1>
-            <p className="text-sm text-slate-400">Database-Backed Secure Access</p>
-          </div>
-          
-          {errorMsg && (
-            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg text-sm flex items-center gap-2">
-              <ShieldAlert size={16} /> {errorMsg}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Role</label>
-              <select name="role" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-pink-500">
-                <option value="admin">Main Admin (Password: admin26)</option>
-                <option value="teamA">Al-Shams Alpha (Password: shams26)</option>
-                <option value="teamB">Al-Qamar Beta (Password: qamar26)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Password</label>
-              <input name="password" type="password" required className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-pink-500" placeholder="Enter secure password" />
-            </div>
-            <button type="submit" className="w-full py-3.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl transition">
-              Secure Login
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
-      <header className="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-lg ${TEAMS[sessionRole].color}`}>
-            {sessionRole === 'admin' ? 'A' : sessionRole === 'teamA' ? 'S' : 'Q'}
-          </div>
-          <div>
-            <h1 className="font-bold text-white text-lg leading-tight">Aura Fest 2026</h1>
-            <p className="text-xs text-slate-400">Logged in as: <span className={TEAMS[sessionRole].text}>{TEAMS[sessionRole].name}</span></p>
-          </div>
-        </div>
-        <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-semibold transition">
-          <LogOut size={16} /> Logout
-        </button>
-      </header>
-
-      <nav className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4">
-        {[
-          { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-          { id: 'candidates', icon: Users, label: 'Candidates' },
-          { id: 'programs', icon: ClipboardList, label: 'Programs' },
-          { id: 'results', icon: Trophy, label: 'Results' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap ${activeTab === tab.id ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-          >
-            <tab.icon size={18} /> {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Girls Fest '26 - Management Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; } /* slate-950 */
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
         
-        {loading && <div className="text-center py-10 text-slate-400 animate-pulse">Loading live database...</div>}
+        /* Smooth transitions */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col selection:bg-pink-500/30">
 
-        {!loading && activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">Live Scoreboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl"></div>
-                <h3 className="text-xl font-bold text-rose-400 mb-2">Al-Shams (Alpha)</h3>
-                <span className="text-6xl font-black text-white">{teamScores.teamA}</span>
-                <p className="text-slate-400 mt-2 text-sm uppercase tracking-wider">Total Points</p>
-              </div>
-
-              <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
-                <h3 className="text-xl font-bold text-indigo-400 mb-2">Al-Qamar (Beta)</h3>
-                <span className="text-6xl font-black text-white">{teamScores.teamB}</span>
-                <p className="text-slate-400 mt-2 text-sm uppercase tracking-wider">Total Points</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
-                <p className="text-slate-400 text-xs uppercase mb-1">Registered</p>
-                <p className="text-2xl font-bold text-white">{candidates.length}</p>
-              </div>
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
-                <p className="text-slate-400 text-xs uppercase mb-1">Results Published</p>
-                <p className="text-2xl font-bold text-emerald-400">{results.length} / {PROGRAMS.length}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'candidates' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><PlusCircle size={20} className="text-pink-500"/> Register Candidate</h3>
-              <form onSubmit={handleAddCandidate} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
-                  <input type="text" required value={newCand.name} onChange={e => setNewCand({...newCand, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" placeholder="e.g. Fathima" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Chest / Reg No</label>
-                  <input type="text" required value={newCand.regNo} onChange={e => setNewCand({...newCand, regNo: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" placeholder="e.g. J-102" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Category</label>
-                  <select value={newCand.category} onChange={e => setNewCand({...newCand, category: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                    <option value="Junior">Junior</option>
-                    <option value="Senior">Senior</option>
-                    <option value="General">General</option>
-                  </select>
-                </div>
-                {sessionRole === 'admin' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Assign Team</label>
-                    <select value={newCand.team} onChange={e => setNewCand({...newCand, team: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                      <option value="teamA">Al-Shams</option>
-                      <option value="teamB">Al-Qamar</option>
-                    </select>
-                  </div>
-                )}
-                <button type="submit" className="w-full bg-pink-600 hover:bg-pink-500 text-white font-semibold py-2 rounded-lg transition mt-2">Save to Database</button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Database Directory ({candidates.length})</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-950 text-slate-400">
-                    <tr>
-                      <th className="p-3 rounded-tl-lg">Reg No</th>
-                      <th className="p-3">Name</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Team</th>
-                      {sessionRole === 'admin' && <th className="p-3 rounded-tr-lg">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/50">
-                    {candidates.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-800/50 transition">
-                        <td className="p-3 font-mono text-pink-400">{c.regNo}</td>
-                        <td className="p-3 font-medium">{c.name}</td>
-                        <td className="p-3">{c.category}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded text-xs border ${TEAMS[c.team]?.border} ${TEAMS[c.team]?.text} bg-slate-950`}>
-                            {TEAMS[c.team]?.name.split(' ')[0]}
-                          </span>
-                        </td>
-                        {sessionRole === 'admin' && (
-                          <td className="p-3">
-                            <button onClick={() => handleDeleteCandidate(c.id)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={16}/></button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                    {candidates.length === 0 && <tr><td colSpan="5" className="p-4 text-center text-slate-500">No candidates added yet.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'programs' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Fest Programs ({PROGRAMS.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-amber-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">Junior Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'Junior').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-indigo-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">Senior Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'Senior').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-emerald-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">General Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'General').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'results' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {sessionRole === 'admin' ? (
-              <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2"><Award size={20}/> Publish Result</h3>
-                <form onSubmit={handleAddResult} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Select Program</label>
-                    <select required value={resultForm.programmeId} onChange={e => setResultForm({...resultForm, programmeId: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                      <option value="">-- Choose Program --</option>
-                      {PROGRAMS.map(p => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
-                    </select>
-                  </div>
-                  
-                  {resultForm.programmeId && (
-                    <div className="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 mt-4">
-                      <div>
-                        <label className="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Points)</label>
-                        <select required value={resultForm.first} onChange={e => setResultForm({...resultForm, first: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Select Winner --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Points)</label>
-                        <select value={resultForm.second} onChange={e => setResultForm({...resultForm, second: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Optional --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Points)</label>
-                        <select value={resultForm.third} onChange={e => setResultForm({...resultForm, third: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Optional --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition mt-4 shadow-lg shadow-emerald-900/50">
-                    Publish to Scoreboard
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center justify-center text-center text-slate-400">
-                <p>Only the Main Admin can publish official results.</p>
-              </div>
-            )}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit max-h-[600px] overflow-y-auto">
-              <h3 className="text-lg font-bold text-white mb-4">Published Results ({results.length})</h3>
-              <div className="space-y-4">
-                {results.length === 0 ? <p className="text-slate-500">No results published yet.</p> : null}
-                {results.map(res => {
-                  const prog = PROGRAMS.find(p => p.id === res.programmeId);
-                  const c1 = candidates.find(c => c.id === res.first);
-                  const c2 = candidates.find(c => c.id === res.second);
-                  const c3 = candidates.find(c => c.id === res.third);
-                  
-                  return (
-                    <div key={res.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
-                      <h4 className="font-bold text-white mb-2">{prog?.name} <span className="text-xs text-slate-500 font-normal ml-2">({prog?.category})</span></h4>
-                      <div className="space-y-1 text-sm">
-                        {c1 && <p className="text-yellow-500">🥇 1st (10pts): {c1.name} <span className="text-slate-500 text-xs">({TEAMS[c1.team]?.name.split(' ')[0]})</span></p>}
-                        {c2 && <p className="text-slate-400">🥈 2nd (5pts): {c2.name} <span className="text-slate-500 text-xs">({TEAMS[c2.team]?.name.split(' ')[0]})</span></p>}
-                        {c3 && <p className="text-amber-700">🥉 3rd (3pts): {c3.name} <span className="text-slate-500 text-xs">({TEAMS[c3.team]?.name.split(' ')[0]})</span></p>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-        )}
-      </main>
+    <!-- Custom Toast Notification (Replaces alert) -->
+    <div id="toast" class="fixed top-5 right-5 z-[100] transform translate-y-[-200%] transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-2 border">
+        <span id="toastIcon">✨</span>
+        <span id="toastMsg">Action successful!</span>
     </div>
-  );
-}
+
+    <!-- Custom Confirm Modal (Replaces confirm) -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl scale-100 transition-transform">
+            <h3 class="text-xl font-bold text-white mb-2">Are you sure?</h3>
+            <p id="confirmText" class="text-sm text-slate-400 mb-6">This action cannot be undone.</p>
+            <div class="flex space-x-3">
+                <button onclick="closeConfirm()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition">Cancel</button>
+                <button onclick="executeConfirm()" class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition shadow-lg shadow-red-900/50">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Root App Container -->
+    <div id="app" class="flex-1 flex flex-col w-full min-h-screen relative"></div>
+
+    <script>
+        const STORAGE_KEY = "aura_fest_local_db_v2";
+
+        const TEAMS = {
+            teamA: { id: 'teamA', name: 'Al-Shams', fullName: 'Al-Shams (Team Alpha)', pass: 'shams26', color: 'rose' },
+            teamB: { id: 'teamB', name: 'Al-Qamar', fullName: 'Al-Qamar (Team Beta)', pass: 'qamar26', color: 'indigo' },
+            admin: { id: 'admin', name: 'Admin', fullName: 'Main Administrator', pass: 'admin26', color: 'emerald' }
+        };
+
+        const PROGRAMS = [
+            // Junior (19 Programs based on user list + fest standard additions)
+            { id: 'j1', name: 'ഖിറാഅത്ത്', category: 'Junior', code: 'J01' },
+            { id: 'j2', name: 'മദ്ഹ് സോങ്', category: 'Junior', code: 'J02' },
+            { id: 'j3', name: 'സിംഗിൾ സോങ് (മദ്ഹ്)', category: 'Junior', code: 'J03' },
+            { id: 'j4', name: 'കഥ പറച്ചിൽ', category: 'Junior', code: 'J04' },
+            { id: 'j5', name: 'ഗ്രൂപ്പ് സോങ്', category: 'Junior', code: 'J05' },
+            { id: 'j6', name: 'പെൻസിൽ ഡ്രോയിംഗ്', category: 'Junior', code: 'J06' },
+            { id: 'j7', name: 'ക്വിസ്', category: 'Junior', code: 'J07' },
+            { id: 'j8', name: 'കവിതാലാപനം', category: 'Junior', code: 'J08' },
+            { id: 'j9', name: 'കയ്യെഴുത്ത്', category: 'Junior', code: 'J09' },
+            { id: 'j10', name: 'ചിത്ര രചന', category: 'Junior', code: 'J10' },
+            { id: 'j11', name: 'കൊളാഷ്', category: 'Junior', code: 'J11' },
+            { id: 'j12', name: 'സ്പെല്ലിംഗ് ബി', category: 'Junior', code: 'J12' },
+            { id: 'j13', name: 'കാലിഗ്രാഫി', category: 'Junior', code: 'J13' },
+            { id: 'j14', name: 'അടിക്കുറിപ്പ്', category: 'Junior', code: 'J14' },
+            { id: 'j15', name: 'മോണോആക്ട്', category: 'Junior', code: 'J15' },
+            { id: 'j16', name: 'നാടൻപാട്ട്', category: 'Junior', code: 'J16' },
+            { id: 'j17', name: 'പ്രസംഗം (മലയാളം)', category: 'Junior', code: 'J17' },
+            { id: 'j18', name: 'പദപ്രശ്നം', category: 'Junior', code: 'J18' },
+            { id: 'j19', name: 'ലഘു നാടകം', category: 'Junior', code: 'J19' },
+
+            // Senior (21 Programs)
+            { id: 's1', name: 'ഖിറാഅത്ത്', category: 'Senior', code: 'S01' },
+            { id: 's2', name: 'മാലപ്പാട്ട്', category: 'Senior', code: 'S02' },
+            { id: 's3', name: 'പ്രസംഗം (മലയാളം)', category: 'Senior', code: 'S03' },
+            { id: 's4', name: 'ഇംഗ്ലീഷ് പ്രസംഗം', category: 'Senior', code: 'S04' },
+            { id: 's5', name: 'പെയിന്റിംഗ്', category: 'Senior', code: 'S05' },
+            { id: 's6', name: 'മെമ്മറിടെസ്റ്റ്', category: 'Senior', code: 'S06' },
+            { id: 's7', name: 'മെഗസിൻ', category: 'Senior', code: 'S07' },
+            { id: 's8', name: 'പതപയറ്റ്', category: 'Senior', code: 'S08' },
+            { id: 's9', name: 'എഴുത്ത്', category: 'Senior', code: 'S09' },
+            { id: 's10', name: 'പത്രനിർമ്മാണം', category: 'Senior', code: 'S10' },
+            { id: 's11', name: 'നാനോ ലിറ്ററേച്ചർ', category: 'Senior', code: 'S11' },
+            { id: 's12', name: 'തലവാചക നിർമ്മാണം', category: 'Senior', code: 'S12' },
+            { id: 's13', name: 'ഉപന്യാസം (മലയാളം)', category: 'Senior', code: 'S13' },
+            { id: 's14', name: 'ഉപന്യാസം (ഇംഗ്ലീഷ്)', category: 'Senior', code: 'S14' },
+            { id: 's15', name: 'മാപ്പിളപ്പാട്ട്', category: 'Senior', code: 'S15' },
+            { id: 's16', name: 'കവിതാ രചന', category: 'Senior', code: 'S16' },
+            { id: 's17', name: 'കഥാരചന', category: 'Senior', code: 'S17' },
+            { id: 's18', name: 'പോസ്റ്റർ നിർമ്മാണം', category: 'Senior', code: 'S18' },
+            { id: 's19', name: 'ഡിബേറ്റ്', category: 'Senior', code: 'S19' },
+            { id: 's20', name: 'ഒപ്പന', category: 'Senior', code: 'S20' },
+            { id: 's21', name: 'ദഫ്മുട്ട്', category: 'Senior', code: 'S21' },
+
+            // General (3 Programs)
+            { id: 'g1', name: 'ബുർദ', category: 'General', code: 'G01' },
+            { id: 'g2', name: 'മെമ്മറിടെസ്റ്റ് (General)', category: 'General', code: 'G02' },
+            { id: 'g3', name: 'ഗ്രന്ഥ വായന', category: 'General', code: 'G03' }
+        ];
+
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+            loggedInTeam: null,
+            currentTab: 'dashboard',
+            candidates: [],
+            results: [] // Format: { progId, first: candId, second: candId, third: candId }
+        };
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function customAlert(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const text = document.getElementById('toastMsg');
+
+            if(type === 'error') {
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-red-950/90 border border-red-500/50 text-red-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
+                icon.innerText = '⚠️';
+            } else {
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
+                icon.innerText = '✨';
+            }
+            
+            text.innerText = message;
+            toast.classList.remove('translate-y-[-200%]');
+            setTimeout(() => toast.classList.add('translate-y-[-200%]'), 3000);
+        }
+
+        let pendingConfirmAction = null;
+        function customConfirm(message, actionCallback) {
+            document.getElementById('confirmText').innerText = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('flex');
+            pendingConfirmAction = actionCallback;
+        }
+        function closeConfirm() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            document.getElementById('confirmModal').classList.remove('flex');
+            pendingConfirmAction = null;
+        }
+        function executeConfirm() {
+            if (pendingConfirmAction) pendingConfirmAction();
+            closeConfirm();
+        }
+
+        // Calculation Logic: 1st=10, 2nd=5, 3rd=3
+        function calculateScores() {
+            let scores = { teamA: 0, teamB: 0 };
+            state.results.forEach(res => {
+                let c1 = state.candidates.find(c => c.id == res.first);
+                let c2 = state.candidates.find(c => c.id == res.second);
+                let c3 = state.candidates.find(c => c.id == res.third);
+
+                if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
+                if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
+                if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
+            });
+            return scores;
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.loggedInTeam) {
+                app.innerHTML = renderLogin();
+            } else {
+                app.innerHTML = renderLayout();
+            }
+        }
+
+        function switchTab(tabId) {
+            state.currentTab = tabId;
+            saveState();
+            render();
+        }
+
+        function renderLogin() {
+            return `
+                <div class="flex-1 flex items-center justify-center p-4 fade-in">
+                    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl"></div>
+                        <div class="text-center mb-8 relative z-10">
+                            <h1 class="text-3xl font-extrabold text-white">Aura Fest '26</h1>
+                            <p class="text-slate-400 text-sm mt-2">Sign in to manage your team.</p>
+                        </div>
+                        <form onsubmit="login(event)" class="space-y-5 relative z-10">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Account</label>
+                                <select id="loginRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-pink-500 focus:outline-none">
+                                    <option value="admin">Main Admin</option>
+                                    <option value="teamA">Al-Shams (Team Alpha)</option>
+                                    <option value="teamB">Al-Qamar (Team Beta)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Password</label>
+                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-pink-500 focus:outline-none" placeholder="Enter password">
+                                <div class="flex justify-between mt-2 px-1">
+                                    <span class="text-[10px] text-slate-500">Shams: shams26</span>
+                                    <span class="text-[10px] text-slate-500">Qamar: qamar26</span>
+                                    <span class="text-[10px] text-slate-500">Admin: admin26</span>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full py-3.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl transition">Login</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLayout() {
+            let activeTeam = TEAMS[state.loggedInTeam];
+            let content = '';
+            
+            if (state.currentTab === 'dashboard') content = renderDashboard();
+            if (state.currentTab === 'candidates') content = renderCandidates();
+            if (state.currentTab === 'programs') content = renderPrograms();
+            if (state.currentTab === 'results') content = renderResults();
+
+            return `
+                <!-- Navbar -->
+                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-pink-500">
+                            ${activeTeam.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h1 class="font-bold text-white text-lg leading-tight">Aura Fest Portal</h1>
+                            <p class="text-xs text-slate-400">User: <span class="text-${activeTeam.color}-400 font-medium">${activeTeam.fullName}</span></p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-semibold transition border border-slate-700">Logout</button>
+                </header>
+
+                <!-- Navigation Tabs -->
+                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4">
+                    ${['dashboard', 'candidates', 'programs', 'results'].map(tab => `
+                        <button onclick="switchTab('${tab}')" class="px-6 py-4 text-sm font-semibold border-b-2 capitalize transition whitespace-nowrap ${state.currentTab === tab ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-400 hover:text-slate-200'}">
+                            ${tab}
+                        </button>
+                    `).join('')}
+                </nav>
+
+                <!-- Dynamic Content -->
+                <main class="flex-1 p-4 sm:p-6 max-w-6xl w-full mx-auto pb-20 fade-in">
+                    ${content}
+                </main>
+            `;
+        }
+
+        function renderDashboard() {
+            const scores = calculateScores();
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-white">Live Scoreboard</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Team Alpha -->
+                        <div class="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 text-center relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl"></div>
+                            <h3 class="text-rose-400 font-bold uppercase tracking-widest text-sm mb-2">Al-Shams</h3>
+                            <div class="text-6xl font-black text-white">${scores.teamA}</div>
+                            <p class="text-slate-500 text-xs mt-2">Total Points</p>
+                        </div>
+                        
+                        <!-- Team Beta -->
+                        <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 text-center relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                            <h3 class="text-indigo-400 font-bold uppercase tracking-widest text-sm mb-2">Al-Qamar</h3>
+                            <div class="text-6xl font-black text-white">${scores.teamB}</div>
+                            <p class="text-slate-500 text-xs mt-2">Total Points</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 text-center">
+                            <p class="text-slate-400 text-xs uppercase mb-1">Registered Candidates</p>
+                            <p class="text-2xl font-bold text-white">${state.candidates.length}</p>
+                        </div>
+                        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 text-center">
+                            <p class="text-slate-400 text-xs uppercase mb-1">Published Results</p>
+                            <p class="text-2xl font-bold text-emerald-400">${state.results.length} / ${PROGRAMS.length}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCandidates() {
+            let teamSelectHtml = state.loggedInTeam === 'admin' 
+                ? `<select id="candTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white"><option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option></select>`
+                : `<input type="hidden" id="candTeam" value="${state.loggedInTeam}"><div class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-400">${TEAMS[state.loggedInTeam].name}</div>`;
+
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Registration Form -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
+                        <h3 class="text-lg font-bold text-white mb-4">Add Candidate</h3>
+                        <form onsubmit="addCandidate(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
+                                <input type="text" id="candName" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" placeholder="Name">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Chest / Reg Number</label>
+                                <input type="text" id="candRegNo" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" placeholder="e.g. S01">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Category</label>
+                                <select id="candCategory" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                                    <option value="Junior">Junior</option>
+                                    <option value="Senior">Senior</option>
+                                    <option value="General">General</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Team</label>
+                                ${teamSelectHtml}
+                            </div>
+                            <button type="submit" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-2.5 rounded-lg transition mt-2">Save Candidate</button>
+                        </form>
+                    </div>
+
+                    <!-- Directory -->
+                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">Directory (${state.candidates.length})</h3>
+                        <div class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                            ${state.candidates.length === 0 ? `<p class="text-slate-500 italic">No candidates registered yet.</p>` : ''}
+                            ${state.candidates.slice().reverse().map(c => `
+                                <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex justify-between items-center hover:border-slate-700 transition">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-xs font-mono bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded border border-pink-500/20">${c.regNo}</span>
+                                            <span class="font-bold text-white">${c.name}</span>
+                                        </div>
+                                        <span class="text-[11px] text-slate-400 font-medium">${TEAMS[c.team].name} • ${c.category}</span>
+                                    </div>
+                                    ${state.loggedInTeam === 'admin' ? `<button onclick="confirmDeleteCandidate(${c.id})" class="text-red-400 hover:text-red-300 text-xs bg-red-950/30 px-3 py-1.5 rounded-lg border border-red-900/50">Delete</button>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPrograms() {
+            const categories = ['Junior', 'Senior', 'General'];
+            let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
+            
+            categories.forEach(cat => {
+                let badgeColor = cat === 'Junior' ? 'amber' : cat === 'Senior' ? 'indigo' : 'emerald';
+                html += `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                        <h3 class="text-${badgeColor}-400 font-bold text-lg mb-4 border-b border-slate-800 pb-2">${cat} Events</h3>
+                        <ul class="space-y-2">
+                            ${PROGRAMS.filter(p => p.category === cat).map(p => {
+                                let hasResult = state.results.find(r => r.progId === p.id);
+                                return `
+                                    <li class="text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center text-slate-300">
+                                        <span class="truncate pr-2">${p.name}</span>
+                                        ${hasResult ? `<span class="text-emerald-500 text-xs font-bold shrink-0">Done</span>` : `<span class="text-slate-600 text-xs font-mono shrink-0">${p.code}</span>`}
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        function renderResults() {
+            let adminForm = '';
+            if (state.loggedInTeam === 'admin') {
+                adminForm = `
+                    <div class="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6 h-fit sticky top-20">
+                        <h3 class="text-lg font-bold text-emerald-400 mb-4">Publish Event Result</h3>
+                        <form onsubmit="publishResult(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Select Program</label>
+                                <select id="resProgId" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" onchange="render()">
+                                    <option value="">-- Choose Program --</option>
+                                    ${PROGRAMS.map(p => `<option value="${p.id}">${p.name} (${p.category})</option>`).join('')}
+                                </select>
+                            </div>
+                            <!-- Dynamic Candidate Selectors based on chosen program -->
+                            <div id="candidateSelectors">
+                                <p class="text-xs text-slate-500 italic mt-4">Select a program to assign winners.</p>
+                            </div>
+                        </form>
+                    </div>
+                `;
+            } else {
+                adminForm = `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-48">
+                        <span class="text-3xl mb-2">🔒</span>
+                        <h3 class="text-white font-bold mb-1">Admin Access Required</h3>
+                        <p class="text-slate-400 text-sm">Only the main administrator can publish official results.</p>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    ${adminForm}
+                    
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">Published Scoreboard (${state.results.length})</h3>
+                        <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                            ${state.results.length === 0 ? `<p class="text-slate-500">No results published yet.</p>` : ''}
+                            ${state.results.slice().reverse().map(res => {
+                                const prog = PROGRAMS.find(p => p.id === res.progId);
+                                const c1 = state.candidates.find(c => c.id == res.first);
+                                const c2 = state.candidates.find(c => c.id == res.second);
+                                const c3 = state.candidates.find(c => c.id == res.third);
+                                
+                                return `
+                                    <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                                        <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal ml-2">(${prog?.category})</span></h4>
+                                        <div class="space-y-1.5 text-sm">
+                                            ${c1 ? `<div class="flex items-center text-yellow-500"><span class="w-6">🥇</span> <span class="truncate">${c1.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c1.team].name.split(' ')[0]}</span></div>` : ''}
+                                            ${c2 ? `<div class="flex items-center text-slate-400"><span class="w-6">🥈</span> <span class="truncate">${c2.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c2.team].name.split(' ')[0]}</span></div>` : ''}
+                                            ${c3 ? `<div class="flex items-center text-amber-700"><span class="w-6">🥉</span> <span class="truncate">${c3.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c3.team].name.split(' ')[0]}</span></div>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper to inject candidate dropdowns dynamically
+        function injectCandidateSelectors() {
+            if(state.currentTab !== 'results' || state.loggedInTeam !== 'admin') return;
+            const progDropdown = document.getElementById('resProgId');
+            if(!progDropdown) return;
+            
+            const progId = progDropdown.value;
+            const container = document.getElementById('candidateSelectors');
+            
+            if(!progId) {
+                container.innerHTML = `<p class="text-xs text-slate-500 italic mt-4">Select a program to assign winners.</p>`;
+                return;
+            }
+
+            const prog = PROGRAMS.find(p => p.id === progId);
+            // Filter candidates: General accepts all, otherwise must match category
+            const eligible = state.candidates.filter(c => prog.category === 'General' || c.category === prog.category);
+            
+            let optionsHTML = `<option value="">-- Select Candidate --</option>` + 
+                eligible.map(c => `<option value="${c.id}">${c.regNo} - ${c.name} (${TEAMS[c.team].name.split(' ')[0]})</option>`).join('');
+
+            container.innerHTML = `
+                <div class="space-y-3 mt-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-[11px] font-bold text-yellow-500 uppercase mb-1">1st Place (10 Pts)</label>
+                        <select id="res1" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHTML}</select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">2nd Place (5 Pts)</label>
+                        <select id="res2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHTML}</select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-amber-700 uppercase mb-1">3rd Place (3 Pts)</label>
+                        <select id="res3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHTML}</select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition mt-4">
+                    Publish Result
+                </button>
+            `;
+        }
+
+        function login(e) {
+            e.preventDefault();
+            const role = document.getElementById('loginRole').value;
+            const pass = document.getElementById('loginPass').value;
+
+            if (TEAMS[role] && TEAMS[role].pass === pass) {
+                state.loggedInTeam = role;
+                saveState();
+                customAlert("Login Successful!");
+                render();
+            } else {
+                customAlert("Incorrect Password!", "error");
+            }
+        }
+
+        function logout() {
+            customConfirm("Are you sure you want to log out?", () => {
+                state.loggedInTeam = null;
+                state.currentTab = 'dashboard';
+                saveState();
+                render();
+                customAlert("Logged out successfully.");
+            });
+        }
+
+        function addCandidate(e) {
+            e.preventDefault();
+            const name = document.getElementById('candName').value;
+            const regNo = document.getElementById('candRegNo').value;
+            const category = document.getElementById('candCategory').value;
+            const team = state.loggedInTeam === 'admin' ? document.getElementById('candTeam').value : state.loggedInTeam;
+
+            // Simple validation to prevent duplicate reg numbers across same category
+            if(state.candidates.some(c => c.regNo === regNo && c.category === category)) {
+                return customAlert("Registration Number already exists in this category!", "error");
+            }
+
+            state.candidates.push({ id: Date.now(), name, regNo, category, team });
+            saveState();
+            customAlert("Candidate Registered!");
+            render();
+        }
+
+        function confirmDeleteCandidate(id) {
+            customConfirm("Delete this candidate? This will also affect their published scores.", () => {
+                state.candidates = state.candidates.filter(c => c.id !== id);
+                saveState();
+                customAlert("Candidate Removed");
+                render();
+            });
+        }
+
+        function publishResult(e) {
+            e.preventDefault();
+            const progId = document.getElementById('resProgId').value;
+            const first = document.getElementById('res1').value;
+            const second = document.getElementById('res2').value;
+            const third = document.getElementById('res3').value;
+
+            if (!first) return customAlert("First place is mandatory!", "error");
+
+            const resultData = { id: Date.now(), progId, first, second, third };
+            
+            // Check if result already exists and overwrite it
+            const existingIdx = state.results.findIndex(r => r.progId === progId);
+            if (existingIdx >= 0) {
+                state.results[existingIdx] = resultData;
+            } else {
+                state.results.push(resultData);
+            }
+
+            saveState();
+            customAlert("Result Published & Scores Updated!");
+            render();
+        }
+
+        // Utility interceptor to inject dropdowns after render cycle if needed
+        const originalRender = render;
+        render = function() {
+            originalRender();
+            if (state.currentTab === 'results') {
+                setTimeout(injectCandidateSelectors, 50);
+            }
+        };
+
+        // Initialize App
+        window.onload = render;
+    </script>
+</body>
+</html>
