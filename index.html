@@ -384,7 +384,7 @@
                         <form onsubmit="publishResult(event)" class="space-y-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-400 mb-1">Select Program</label>
-                                <select id="resProgId" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" onchange="render()">
+                                <select id="resProgId" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" onchange="updateResultDropdowns()">
                                     <option value="">-- Choose Program --</option>
                                     ${PROGRAMS.map(p => `<option value="${p.id}">${p.name} (${p.category})</option>`).join('')}
                                 </select>
@@ -424,9 +424,9 @@
                                     <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
                                         <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal ml-2">(${prog?.category})</span></h4>
                                         <div class="space-y-1.5 text-sm">
-                                            ${c1 ? `<div class="flex items-center text-yellow-500"><span class="w-6">🥇</span> <span class="truncate">${c1.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c1.team].name.split(' ')[0]}</span></div>` : ''}
-                                            ${c2 ? `<div class="flex items-center text-slate-400"><span class="w-6">🥈</span> <span class="truncate">${c2.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c2.team].name.split(' ')[0]}</span></div>` : ''}
-                                            ${c3 ? `<div class="flex items-center text-amber-700"><span class="w-6">🥉</span> <span class="truncate">${c3.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c3.team].name.split(' ')[0]}</span></div>` : ''}
+                                            ${c1 ? `<div class="flex items-center text-yellow-500"><span class="w-6">🥇</span> <span class="truncate">${c1.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c1.team].name.split(' ')[0]} (10 pts)</span></div>` : ''}
+                                            ${c2 ? `<div class="flex items-center text-slate-400"><span class="w-6">🥈</span> <span class="truncate">${c2.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c2.team].name.split(' ')[0]} (5 pts)</span></div>` : ''}
+                                            ${c3 ? `<div class="flex items-center text-amber-700"><span class="w-6">🥉</span> <span class="truncate">${c3.name}</span> <span class="ml-auto text-xs font-mono text-slate-500">${TEAMS[c3.team].name.split(' ')[0]} (3 pts)</span></div>` : ''}
                                         </div>
                                     </div>
                                 `;
@@ -437,8 +437,8 @@
             `;
         }
 
-        // Helper to inject candidate dropdowns dynamically
-        function injectCandidateSelectors() {
+        // Dedicated helper that is called on change of the select
+        window.updateResultDropdowns = function() {
             if(state.currentTab !== 'results' || state.loggedInTeam !== 'admin') return;
             const progDropdown = document.getElementById('resProgId');
             if(!progDropdown) return;
@@ -478,6 +478,7 @@
                 </button>
             `;
         }
+
 
         function login(e) {
             e.preventDefault();
