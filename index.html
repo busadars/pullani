@@ -1,524 +1,485 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { Trophy, Users, LayoutDashboard, ClipboardList, LogOut, Trash2, Award, PlusCircle, ShieldAlert } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Girls Fest '26 - Management Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-pink-500/30">
 
-// --- FIREBASE INITIALIZATION ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'aura-fest-default-id';
-
-// --- STATIC DATA ---
-const TEAMS = {
-  teamA: { id: 'teamA', name: 'Al-Shams (Team Alpha)', pass: 'shams26', color: 'bg-rose-500', text: 'text-rose-500', border: 'border-rose-500' },
-  teamB: { id: 'teamB', name: 'Al-Qamar (Team Beta)', pass: 'qamar26', color: 'bg-indigo-500', text: 'text-indigo-500', border: 'border-indigo-500' },
-  admin: { id: 'admin', name: 'Main Admin', pass: 'admin26', color: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500' }
-};
-
-const PROGRAMS = [
-  // Junior
-  { id: 'j1', name: 'ഖിറാഅത്ത്', category: 'Junior' },
-  { id: 'j2', name: 'മദ്ഹ് സോങ്', category: 'Junior' },
-  { id: 'j3', name: 'സിംഗിൾ സോങ് (മദ്ഹ്)', category: 'Junior' },
-  { id: 'j4', name: 'കഥ പറച്ചിൽ', category: 'Junior' },
-  { id: 'j5', name: 'ഗ്രൂപ്പ് സോങ്', category: 'Junior' },
-  { id: 'j6', name: 'പെൻസിൽ ഡ്രോയിംഗ്', category: 'Junior' },
-  { id: 'j7', name: 'ക്വിസ്', category: 'Junior' },
-  { id: 'j8', name: 'കവിതാലാപനം', category: 'Junior' },
-  { id: 'j9', name: 'കയ്യെഴുത്ത്', category: 'Junior' },
-  { id: 'j10', name: 'ചിത്ര രചന', category: 'Junior' },
-  { id: 'j11', name: 'കൊളാഷ്', category: 'Junior' },
-  { id: 'j12', name: 'സ്പെല്ലിംഗ് ബി', category: 'Junior' },
-  { id: 'j13', name: 'കാലിഗ്രാഫി', category: 'Junior' },
-  { id: 'j14', name: 'അടിക്കുറിപ്പ്', category: 'Junior' },
-  
-  // Senior
-  { id: 's1', name: 'ഖിറാഅത്ത്', category: 'Senior' },
-  { id: 's2', name: 'മാലപ്പാട്ട്', category: 'Senior' },
-  { id: 's3', name: 'പ്രസംഗം (മലയാളം)', category: 'Senior' },
-  { id: 's4', name: 'ഇംഗ്ലീഷ് പ്രസംഗം', category: 'Senior' },
-  { id: 's5', name: 'പെയിന്റിംഗ്', category: 'Senior' },
-  { id: 's6', name: 'മെമ്മറിടെസ്റ്റ്', category: 'Senior' },
-  { id: 's7', name: 'മെഗസിൻ', category: 'Senior' },
-  { id: 's8', name: 'പതപയറ്റ്', category: 'Senior' },
-  { id: 's9', name: 'എഴുത്ത്', category: 'Senior' },
-  { id: 's10', name: 'പത്രനിർമ്മാണം', category: 'Senior' },
-  { id: 's11', name: 'നാനോ ലിറ്ററേച്ചർ', category: 'Senior' },
-  { id: 's12', name: 'തലവാചക നിർമ്മാണം', category: 'Senior' },
-
-  // General
-  { id: 'g1', name: 'ബുർദ', category: 'General' },
-  { id: 'g2', name: 'മെമ്മറിടെസ്റ്റ്', category: 'General' },
-  { id: 'g3', name: 'ഗ്രന്ഥ വായന', category: 'General' }
-];
-
-export default function App() {
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [sessionRole, setSessionRole] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // DB State
-  const [candidates, setCandidates] = useState([]);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  // UI State
-  const [newCand, setNewCand] = useState({ name: '', team: 'teamA', category: 'Junior', regNo: '' });
-  const [resultForm, setResultForm] = useState({ programmeId: '', first: '', second: '', third: '' });
-
-  // 1. Initialize Firebase Auth
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error("Auth Error:", err);
-        setErrorMsg("Failed to connect to secure server.");
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Fetch Data (Only when Auth is ready)
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const candidatesRef = collection(db, 'artifacts', appId, 'public', 'data', 'candidates');
-    const resultsRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
-
-    const unsubCandidates = onSnapshot(candidatesRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(data);
-      setLoading(false);
-    }, (err) => console.error("Candidates fetch error:", err));
-
-    const unsubResults = onSnapshot(resultsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setResults(data);
-    }, (err) => console.error("Results fetch error:", err));
-
-    return () => {
-      unsubCandidates();
-      unsubResults();
-    };
-  }, [firebaseUser]);
-
-  // --- UPDATED CALCULATION LOGIC ---
-  const teamScores = useMemo(() => {
-    let scores = { teamA: 0, teamB: 0 };
-    results.forEach(res => {
-      const c1 = candidates.find(c => c.id === res.first);
-      const c2 = candidates.find(c => c.id === res.second);
-      const c3 = candidates.find(c => c.id === res.third);
-
-      // Points: 1st = 10, 2nd = 5, 3rd = 3
-      if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
-      if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
-      if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
-    });
-    return scores;
-  }, [results, candidates]);
-
-  // --- HANDLERS ---
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const role = e.target.role.value;
-    const pass = e.target.password.value;
-    
-    if (TEAMS[role] && TEAMS[role].pass === pass) {
-      setSessionRole(role);
-      setErrorMsg("");
-      setNewCand(prev => ({ ...prev, team: role === 'admin' ? 'teamA' : role }));
-    } else {
-      setErrorMsg("Incorrect Password! Please try again.");
-    }
-  };
-
-  const handleLogout = () => {
-    setSessionRole(null);
-    setActiveTab('dashboard');
-  };
-
-  const handleAddCandidate = async (e) => {
-    e.preventDefault();
-    if (!firebaseUser) return;
-    if (!newCand.name || !newCand.regNo) return;
-
-    const teamToSave = sessionRole === 'admin' ? newCand.team : sessionRole;
-
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'candidates'), {
-        name: newCand.name,
-        team: teamToSave,
-        category: newCand.category,
-        regNo: newCand.regNo,
-        timestamp: Date.now()
-      });
-      setNewCand({ name: '', team: sessionRole === 'admin' ? 'teamA' : sessionRole, category: 'Junior', regNo: '' });
-      alert("Candidate Added Successfully!");
-    } catch (err) {
-      alert("Error saving to database.");
-    }
-  };
-
-  const handleDeleteCandidate = async (id) => {
-    if (sessionRole !== 'admin') return alert("Only admins can delete.");
-    if (!window.confirm("Are you sure you want to delete this candidate?")) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'candidates', id));
-    } catch (err) {
-      alert("Delete failed.");
-    }
-  };
-
-  const handleAddResult = async (e) => {
-    e.preventDefault();
-    if (sessionRole !== 'admin') return;
-    if (!resultForm.programmeId || !resultForm.first) return alert("Select at least 1st place.");
-
-    try {
-      const resultDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'results', resultForm.programmeId);
-      await setDoc(resultDocRef, {
-        programmeId: resultForm.programmeId,
-        first: resultForm.first,
-        second: resultForm.second,
-        third: resultForm.third,
-        timestamp: Date.now()
-      });
-      setResultForm({ programmeId: '', first: '', second: '', third: '' });
-      alert("Result Published Successfully!");
-    } catch (err) {
-      alert("Error publishing result.");
-    }
-  };
-
-
-  // --- RENDERERS ---
-  if (!sessionRole) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-slate-200">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-white mb-2">Aura Fest Portal</h1>
-            <p className="text-sm text-slate-400">Database-Backed Secure Access</p>
-          </div>
-          
-          {errorMsg && (
-            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg text-sm flex items-center gap-2">
-              <ShieldAlert size={16} /> {errorMsg}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Role</label>
-              <select name="role" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-pink-500">
-                <option value="admin">Main Admin (Password: admin26)</option>
-                <option value="teamA">Al-Shams Alpha (Password: shams26)</option>
-                <option value="teamB">Al-Qamar Beta (Password: qamar26)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Password</label>
-              <input name="password" type="password" required className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-pink-500" placeholder="Enter secure password" />
-            </div>
-            <button type="submit" className="w-full py-3.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl transition">
-              Secure Login
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
-      <header className="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-lg ${TEAMS[sessionRole].color}`}>
-            {sessionRole === 'admin' ? 'A' : sessionRole === 'teamA' ? 'S' : 'Q'}
-          </div>
-          <div>
-            <h1 className="font-bold text-white text-lg leading-tight">Aura Fest 2026</h1>
-            <p className="text-xs text-slate-400">Logged in as: <span className={TEAMS[sessionRole].text}>{TEAMS[sessionRole].name}</span></p>
-          </div>
-        </div>
-        <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-semibold transition">
-          <LogOut size={16} /> Logout
-        </button>
-      </header>
-
-      <nav className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4">
-        {[
-          { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-          { id: 'candidates', icon: Users, label: 'Candidates' },
-          { id: 'programs', icon: ClipboardList, label: 'Programs' },
-          { id: 'results', icon: Trophy, label: 'Results' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap ${activeTab === tab.id ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-          >
-            <tab.icon size={18} /> {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-        
-        {loading && <div className="text-center py-10 text-slate-400 animate-pulse">Loading live database...</div>}
-
-        {!loading && activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">Live Scoreboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl"></div>
-                <h3 className="text-xl font-bold text-rose-400 mb-2">Al-Shams (Alpha)</h3>
-                <span className="text-6xl font-black text-white">{teamScores.teamA}</span>
-                <p className="text-slate-400 mt-2 text-sm uppercase tracking-wider">Total Points</p>
-              </div>
-
-              <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
-                <h3 className="text-xl font-bold text-indigo-400 mb-2">Al-Qamar (Beta)</h3>
-                <span className="text-6xl font-black text-white">{teamScores.teamB}</span>
-                <p className="text-slate-400 mt-2 text-sm uppercase tracking-wider">Total Points</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
-                <p className="text-slate-400 text-xs uppercase mb-1">Registered</p>
-                <p className="text-2xl font-bold text-white">{candidates.length}</p>
-              </div>
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
-                <p className="text-slate-400 text-xs uppercase mb-1">Results Published</p>
-                <p className="text-2xl font-bold text-emerald-400">{results.length} / {PROGRAMS.length}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'candidates' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><PlusCircle size={20} className="text-pink-500"/> Register Candidate</h3>
-              <form onSubmit={handleAddCandidate} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
-                  <input type="text" required value={newCand.name} onChange={e => setNewCand({...newCand, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" placeholder="e.g. Fathima" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Chest / Reg No</label>
-                  <input type="text" required value={newCand.regNo} onChange={e => setNewCand({...newCand, regNo: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" placeholder="e.g. J-102" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Category</label>
-                  <select value={newCand.category} onChange={e => setNewCand({...newCand, category: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                    <option value="Junior">Junior</option>
-                    <option value="Senior">Senior</option>
-                    <option value="General">General</option>
-                  </select>
-                </div>
-                {sessionRole === 'admin' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Assign Team</label>
-                    <select value={newCand.team} onChange={e => setNewCand({...newCand, team: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                      <option value="teamA">Al-Shams</option>
-                      <option value="teamB">Al-Qamar</option>
-                    </select>
-                  </div>
-                )}
-                <button type="submit" className="w-full bg-pink-600 hover:bg-pink-500 text-white font-semibold py-2 rounded-lg transition mt-2">Save to Database</button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Database Directory ({candidates.length})</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-950 text-slate-400">
-                    <tr>
-                      <th className="p-3 rounded-tl-lg">Reg No</th>
-                      <th className="p-3">Name</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Team</th>
-                      {sessionRole === 'admin' && <th className="p-3 rounded-tr-lg">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/50">
-                    {candidates.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-800/50 transition">
-                        <td className="p-3 font-mono text-pink-400">{c.regNo}</td>
-                        <td className="p-3 font-medium">{c.name}</td>
-                        <td className="p-3">{c.category}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded text-xs border ${TEAMS[c.team]?.border} ${TEAMS[c.team]?.text} bg-slate-950`}>
-                            {TEAMS[c.team]?.name.split(' ')[0]}
-                          </span>
-                        </td>
-                        {sessionRole === 'admin' && (
-                          <td className="p-3">
-                            <button onClick={() => handleDeleteCandidate(c.id)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={16}/></button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                    {candidates.length === 0 && <tr><td colSpan="5" className="p-4 text-center text-slate-500">No candidates added yet.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'programs' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Fest Programs ({PROGRAMS.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-amber-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">Junior Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'Junior').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-indigo-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">Senior Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'Senior').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-emerald-400 font-bold text-lg mb-3 border-b border-slate-800 pb-2">General Categories</h3>
-                <ul className="space-y-2">
-                  {PROGRAMS.filter(p => p.category === 'General').map(p => (
-                    <li key={p.id} className="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                      {p.name}
-                      {results.find(r => r.programmeId === p.id) && <Award size={16} className="text-emerald-500" />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {!loading && activeTab === 'results' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {sessionRole === 'admin' ? (
-              <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2"><Award size={20}/> Publish Result</h3>
-                <form onSubmit={handleAddResult} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Select Program</label>
-                    <select required value={resultForm.programmeId} onChange={e => setResultForm({...resultForm, programmeId: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                      <option value="">-- Choose Program --</option>
-                      {PROGRAMS.map(p => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
-                    </select>
-                  </div>
-                  
-                  {resultForm.programmeId && (
-                    <div className="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 mt-4">
-                      <div>
-                        <label className="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Points)</label>
-                        <select required value={resultForm.first} onChange={e => setResultForm({...resultForm, first: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Select Winner --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Points)</label>
-                        <select value={resultForm.second} onChange={e => setResultForm({...resultForm, second: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Optional --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Points)</label>
-                        <select value={resultForm.third} onChange={e => setResultForm({...resultForm, third: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-                          <option value="">-- Optional --</option>
-                          {candidates.filter(c => c.category === PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category || PROGRAMS.find(p=>p.id === resultForm.programmeId)?.category === 'General').map(c => (
-                            <option key={c.id} value={c.id}>{c.regNo} - {c.name} ({TEAMS[c.team]?.name.split(' ')[0]})</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition mt-4 shadow-lg shadow-emerald-900/50">
-                    Publish to Scoreboard
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center justify-center text-center text-slate-400">
-                <p>Only the Main Admin can publish official results.</p>
-              </div>
-            )}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit max-h-[600px] overflow-y-auto">
-              <h3 className="text-lg font-bold text-white mb-4">Published Results ({results.length})</h3>
-              <div className="space-y-4">
-                {results.length === 0 ? <p className="text-slate-500">No results published yet.</p> : null}
-                {results.map(res => {
-                  const prog = PROGRAMS.find(p => p.id === res.programmeId);
-                  const c1 = candidates.find(c => c.id === res.first);
-                  const c2 = candidates.find(c => c.id === res.second);
-                  const c3 = candidates.find(c => c.id === res.third);
-                  
-                  return (
-                    <div key={res.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
-                      <h4 className="font-bold text-white mb-2">{prog?.name} <span className="text-xs text-slate-500 font-normal ml-2">({prog?.category})</span></h4>
-                      <div className="space-y-1 text-sm">
-                        {c1 && <p className="text-yellow-500">🥇 1st (10pts): {c1.name} <span className="text-slate-500 text-xs">({TEAMS[c1.team]?.name.split(' ')[0]})</span></p>}
-                        {c2 && <p className="text-slate-400">🥈 2nd (5pts): {c2.name} <span className="text-slate-500 text-xs">({TEAMS[c2.team]?.name.split(' ')[0]})</span></p>}
-                        {c3 && <p className="text-amber-700">🥉 3rd (3pts): {c3.name} <span className="text-slate-500 text-xs">({TEAMS[c3.team]?.name.split(' ')[0]})</span></p>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-        )}
-      </main>
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 z-[100] transform translate-y-[-200%] transition-transform duration-300 bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3">
+        <span id="toastIcon">✨</span>
+        <span id="toastMsg">Action completed successfully!</span>
     </div>
-  );
-}
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center transform transition-all scale-100">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">⚠️</div>
+            <p id="confirmText" class="text-white font-semibold text-lg mb-6"></p>
+            candidates: [
+                { id: 1, name: 'Fathima Zohra', team: 'teamA', category: 'Senior', regNo: 'S001' },
+                { id: 2, name: 'Aysha Mariyam', team: 'teamB', category: 'Junior', regNo: 'J001' }
+            ],
+            programmes: [
+                // 1. Junior Stage (ജൂനിയർ സ്റ്റേജ്)
+                { id: 'J1', name: 'ഖിറാഅത്ത് (Qiraat)', type: 'stage', category: 'Junior', code: 'J01' },
+                { id: 'J2', name: 'സിംഗിൾ സോങ് (മദ്ഹ്) (Single Song - Madh)', type: 'stage', category: 'Junior', code: 'J02' },
+                { id: 'J3', name: 'കഥ പറച്ചിൽ (Story Telling)', type: 'stage', category: 'Junior', code: 'J03' },
+                
+                // 2. Junior Non-Stage (ജൂനിയർ നോൺ-സ്റ്റേജ്)
+                { id: 'J4', name: 'പെൻസിൽ ഡ്രോയിംഗ് (Pencil Drawing)', type: 'nonstage', category: 'Junior', code: 'J04' },
+                { id: 'J5', name: 'പെയിന്റിംഗ് (Painting)', type: 'nonstage', category: 'Junior', code: 'J05' },
+                { id: 'J6', name: 'മെമ്മറിടെസ്റ്റ് (Memory Test)', type: 'nonstage', category: 'Junior', code: 'J06' },
+                { id: 'J7', name: 'ചിത്രരചന (Drawing)', type: 'nonstage', category: 'Junior', code: 'J07' },
+                { id: 'J8', name: 'എഴുത്ത് മത്സരം (ഇംഗ്ലീഷ്, മലയാളം, അറബി) (Writing - Eng/Mal/Arb)', type: 'nonstage', category: 'Junior', code: 'J08' },
+                { id: 'J9', name: 'ഗ്രന്ഥവായന (Book Reading)', type: 'nonstage', category: 'Junior', code: 'J09' },
+
+                // 3. Senior Stage (സീനിയർ സ്റ്റേജ്)
+                { id: 'S1', name: 'മദ്ഹ് സോങ് (Madh Song)', type: 'stage', category: 'Senior', code: 'S01' },
+                { id: 'S2', name: 'ഖിറാഅത്ത് (Qiraat)', type: 'stage', category: 'Senior', code: 'S02' },
+                { id: 'S3', name: 'പ്രസംഗം (മലയാളം) (Malayalam Speech)', type: 'stage', category: 'Senior', code: 'S03' },
+                { id: 'S4', name: 'പ്രസംഗം (ഇംഗ്ലീഷ്) (English Speech)', type: 'stage', category: 'Senior', code: 'S04' },
+                { id: 'S5', name: 'തത്സമയ കവിതാലാപനം (Instant Poem Recitation)', type: 'stage', category: 'Senior', code: 'S05' },
+
+                // 4. Senior Non-Stage (സീനിയർ നോൺ-സ്റ്റേജ്)
+                { id: 'S6', name: 'കയ്യെഴുത്ത് (ഇംഗ്ലീഷ്, മലയാളം, അറബി) (Handwriting - Eng/Mal/Arb)', type: 'nonstage', category: 'Senior', code: 'S06' },
+                { id: 'S7', name: 'പദസമ്പത്ത് (Vocabulary - English)', type: 'nonstage', category: 'Senior', code: 'S07' },
+                { id: 'S8', name: 'സ്പെല്ലിംഗ് ബി (Spelling Bee)', type: 'nonstage', category: 'Senior', code: 'S08' },
+                { id: 'S9', name: 'കാലിഗ്രാഫി (Calligraphy)', type: 'nonstage', category: 'Senior', code: 'S09' },
+                { id: 'S10', name: 'നാനോ ലിറ്ററേച്ചർ (Nano Literature)', type: 'nonstage', category: 'Senior', code: 'S10' },
+                { id: 'S11', name: 'ഗ്രന്ഥവായന (Book Reading)', type: 'nonstage', category: 'Senior', code: 'S11' },
+                { id: 'S12', name: 'അടിക്കുറിപ്പ് നിർമ്മാണം (Caption Writing)', type: 'nonstage', category: 'Senior', code: 'S12' },
+                { id: 'S13', name: 'തലക്കെട്ട് നിർമ്മാണം (Headline Making)', type: 'nonstage', category: 'Senior', code: 'S13' },
+
+                // 5. General Stage (ജനറൽ സ്റ്റേജ്)
+                { id: 'G1', name: 'ബുർദ (Burdah)', type: 'stage', category: 'General', code: 'G01' },
+                { id: 'G2', name: 'മാലപ്പാട്ട് (Malappattu)', type: 'stage', category: 'General', code: 'G02' },
+                { id: 'G3', name: 'ഗ്രൂപ്പ് സോങ് (Group Song)', type: 'stage', category: 'General', code: 'G03' },
+                
+                // 6. General Non-Stage (ജനറൽ നോൺ-സ്റ്റേജ്)
+                { id: 'G4', name: 'ക്വിസ് (Quiz)', type: 'nonstage', category: 'General', code: 'G04' },
+                { id: 'G5', name: 'മെമ്മറിടെസ്റ്റ് (Memory Test)', type: 'nonstage', category: 'General', code: 'G05' },
+                { id: 'G6', name: 'മാഗസിൻ നിർമ്മാണം (Magazine Making)', type: 'nonstage', category: 'General', code: 'G06' },
+                { id: 'G7', name: 'കൊളാഷ് (Collage)', type: 'nonstage', category: 'General', code: 'G07' },
+                { id: 'G8', name: 'പത്രനിർമ്മാണം (Newspaper Making)', type: 'nonstage', category: 'General', code: 'G08' }
+            ],
+            results: [] // Format: { progId, first: candId, second: candId, third: candId, published: boolean }
+        };
+
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+
+        // --- CORE LOGIC & ALERTS --- //
+        function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+        let pendingConfirmAction = null;
+
+        function customConfirm(message, actionCallback) {
+            document.getElementById('confirmText').innerText = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('flex');
+            pendingConfirmAction = actionCallback;
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            document.getElementById('confirmModal').classList.remove('flex');
+            pendingConfirmAction = null;
+        }
+
+        function executeConfirmAction() {
+            if (pendingConfirmAction) pendingConfirmAction();
+            closeConfirmModal();
+        }
+
+        function customAlert(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const text = document.getElementById('toastMsg');
+
+            toast.classList.remove('translate-y-[-200%]');
+
+            if(type === 'error') {
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-red-950/90 border border-red-500/50 text-red-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
+                icon.innerText = '⚠️';
+            } else {
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
+                icon.innerText = '✨';
+            }
+            
+            text.innerText = message;
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-200%]');
+            }, 3000);
+        }
+
+        // --- SCORING CALCULATION (10 - 5 - 3) --- //
+        function getTeamPoints(teamId) {
+            let points = 0;
+            state.results.forEach(res => {
+                if (res.first) {
+                    let c = state.candidates.find(cand => cand.id.toString() === res.first.toString());
+                    if (c && c.team === teamId) points += 10;
+                }
+                if (res.second) {
+                    let c = state.candidates.find(cand => cand.id.toString() === res.second.toString());
+                    if (c && c.team === teamId) points += 5;
+                }
+                if (res.third) {
+                    let c = state.candidates.find(cand => cand.id.toString() === res.third.toString());
+                    if (c && c.team === teamId) points += 3;
+                }
+            });
+            return points;
+        }
+
+        // --- RENDER SYSTEM --- //
+        function switchTab(tab) {
+            state.currentTab = tab;
+            saveState();
+            render();
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.loggedInTeam) {
+                app.innerHTML = renderLoginScreen();
+            } else {
+                app.innerHTML = renderAppLayout();
+            }
+        }
+
+        function renderLoginScreen() {
+            return `
+                <div class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950">
+                    <div class="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+                        <div class="absolute top-[-50px] right-[-50px] w-32 h-32 bg-pink-600/20 rounded-full blur-3xl"></div>
+                        <div class="text-center mb-8 relative z-10">
+                            <h1 class="text-3xl font-extrabold text-white tracking-tight">Aura Fest Portal</h1>
+                            <p class="text-slate-400 text-sm mt-2">Sign in to manage the cultural fest.</p>
+                        </div>
+                        <form onsubmit="handleLogin(event)" class="space-y-5 relative z-10">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Account Role</label>
+                                <select id="loginTeam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500">
+                                    <option value="teamA">Al-Shams (Team Alpha) - Pass: shams26</option>
+                                    <option value="teamB">Al-Qamar (Team Beta) - Pass: qamar26</option>
+                                    <option value="admin">Main Admin - Pass: admin26</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Password</label>
+                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500">
+                            </div>
+                            <button type="submit" class="w-full py-3.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl shadow-lg transition">Login</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const team = document.getElementById('loginTeam').value;
+            const pass = document.getElementById('loginPass').value;
+            if (team === 'admin' && pass === 'admin26' || state.teams[team] && pass === state.teams[team].pass) {
+                state.loggedInTeam = team;
+                saveState();
+                customAlert("Login successful!");
+                render();
+            } else {
+                customAlert("Invalid password!", "error");
+            }
+        }
+
+        function renderAppLayout() {
+            let tabs = [
+                { id: 'dashboard', name: '📊 Dashboard' },
+                { id: 'candidates', name: '👥 Candidates' },
+                { id: 'programmes', name: '📋 Programmes' },
+                { id: 'results', name: '🏆 Results' }
+            ];
+
+            let content = '';
+            if(state.currentTab === 'dashboard') content = renderDashboard();
+            if(state.currentTab === 'candidates') content = renderCandidates();
+            if(state.currentTab === 'programmes') content = renderProgrammes();
+            if(state.currentTab === 'results') content = renderResults();
+
+            return `
+                <!-- Header -->
+                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center z-10 shrink-0">
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Aura Fest '26</h1>
+                        <p class="text-xs text-pink-400">User: ${state.loggedInTeam === 'admin' ? 'Administrator' : state.teams[state.loggedInTeam].name}</p>
+                    </div>
+                    <button onclick="state.loggedInTeam=null; saveState(); render();" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm font-semibold">Logout</button>
+                </header>
+                <!-- Nav -->
+                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4 shrink-0">
+                    ${tabs.map(t => `
+                        <button onclick="switchTab('${t.id}')" class="px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${state.currentTab === t.id ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-400 hover:text-slate-200'}">
+                            ${t.name}
+                        </button>
+                    `).join('')}
+                </nav>
+                <!-- Scrollable Main -->
+                <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950">
+                    <div class="max-w-7xl mx-auto space-y-6 pb-20">
+                        ${content}
+                    </div>
+                </main>
+            `;
+        }
+
+        // --- DASHBOARD TAB ---
+        function renderDashboard() {
+            let ptsA = getTeamPoints('teamA');
+            let ptsB = getTeamPoints('teamB');
+            
+            return `
+                <h2 class="text-2xl font-bold text-white mb-4">Live Scoreboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 border ${ptsA >= ptsB ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.15)]' : 'border-slate-800'} rounded-2xl p-8 text-center relative overflow-hidden">
+                        <div class="absolute top-[-20px] right-[-20px] w-24 h-24 bg-rose-500/10 rounded-full blur-2xl"></div>
+                        <h3 class="text-rose-400 font-bold mb-2 text-lg uppercase tracking-wider">Al-Shams</h3>
+                        <span class="text-7xl font-black text-white">${ptsA}</span>
+                    </div>
+                    <div class="bg-slate-900 border ${ptsB >= ptsA ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]' : 'border-slate-800'} rounded-2xl p-8 text-center relative overflow-hidden">
+                        <div class="absolute top-[-20px] right-[-20px] w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                        <h3 class="text-indigo-400 font-bold mb-2 text-lg uppercase tracking-wider">Al-Qamar</h3>
+                        <span class="text-7xl font-black text-white">${ptsB}</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
+                        <p class="text-xs text-slate-400 uppercase">Total Candidates</p>
+                        <h3 class="text-2xl font-bold text-white mt-1">${state.candidates.length}</h3>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
+                        <p class="text-xs text-slate-400 uppercase">Results Published</p>
+                        <h3 class="text-2xl font-bold text-emerald-400 mt-1">${state.results.length} / ${state.programmes.length}</h3>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- CANDIDATES TAB ---
+        function renderCandidates() {
+            let teamOpts = state.loggedInTeam === 'admin' 
+                ? `<option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option>`
+                : `<option value="${state.loggedInTeam}">${state.teams[state.loggedInTeam].name}</option>`;
+
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
+                        <h3 class="text-lg font-bold text-white mb-4">Register Candidate</h3>
+                        <form onsubmit="addCandidate(event)" class="space-y-4">
+                            <input type="text" id="cName" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                            <input type="text" id="cReg" required placeholder="Chest No (e.g. J104)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                            <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                                <option value="Junior">Junior</option><option value="Senior">Senior</option><option value="General">General</option>
+                            </select>
+                            <select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">${teamOpts}</select>
+                            <button type="submit" class="w-full bg-pink-600 text-white font-semibold py-2 rounded-lg">Save Candidate</button>
+                        </form>
+                    </div>
+                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">Directory</h3>
+                        <div class="space-y-2">
+                            ${state.candidates.map(c => `
+                                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-pink-400 font-mono mr-2">${c.regNo}</span><span class="font-medium text-white">${c.name}</span>
+                                        <p class="text-xs text-slate-500 mt-1">${state.teams[c.team].name} • ${c.category}</p>
+                                    </div>
+                                    ${state.loggedInTeam === 'admin' ? `<button onclick="deleteCand(${c.id})" class="text-red-400 hover:text-red-300">🗑️</button>` : ''}
+                                </div>
+                            `).join('') || '<p class="text-slate-500">No candidates yet.</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addCandidate(e) {
+            e.preventDefault();
+            state.candidates.push({
+                id: Date.now(),
+                name: document.getElementById('cName').value,
+                regNo: document.getElementById('cReg').value,
+                category: document.getElementById('cCat').value,
+                team: document.getElementById('cTeam').value
+            });
+            saveState();
+            customAlert("Candidate added!");
+            render();
+        }
+
+        function deleteCand(id) {
+            if(confirm("Delete candidate?")) {
+                state.candidates = state.candidates.filter(c => c.id !== id);
+                saveState();
+                render();
+            }
+        }
+
+        // --- PROGRAMMES TAB ---
+        function renderProgrammes() {
+            return `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    ${['Junior', 'Senior', 'General'].map(cat => `
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                            <h3 class="font-bold text-lg mb-3 ${cat==='Junior'?'text-amber-400':cat==='Senior'?'text-indigo-400':'text-emerald-400'}">${cat} (${state.programmes.filter(p=>p.category===cat).length})</h3>
+                            <ul class="space-y-2">
+                                ${state.programmes.filter(p=>p.category===cat).map(p => `
+                                    <li class="text-sm text-white bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
+                                        ${p.name}
+                                        ${state.results.find(r=>r.progId===p.id) ? '<span class="text-emerald-500 text-xs">✔ Published</span>' : ''}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // --- RESULTS TAB ---
+        function renderResults() {
+            let adminForm = '';
+            if (state.loggedInTeam === 'admin') {
+                adminForm = `
+                    <div class="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-emerald-400 mb-4">Publish Result</h3>
+                        <form onsubmit="publishResult(event)" class="space-y-4">
+                            <select id="resProgId" required onchange="renderResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                                <option value="">-- Choose Program --</option>
+                                ${state.programmes.map(p => `<option value="${p.id}">${p.name} (${p.category})</option>`).join('')}
+                            </select>
+                            
+                            <!-- Dynamic Dropdowns Container -->
+                            <div id="dynamicDropdowns" class="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 hidden">
+                                <div>
+                                    <label class="block text-xs font-bold text-yellow-500 mb-1">🥇 1st Place (10 Pts)</label>
+                                    <select id="res1" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-1">🥈 2nd Place (5 Pts)</label>
+                                    <select id="res2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-amber-700 mb-1">🥉 3rd Place (3 Pts)</label>
+                                    <select id="res3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg shadow-lg">Publish to Scoreboard</button>
+                        </form>
+                    </div>
+                `;
+            } else {
+                adminForm = `<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-center text-slate-400">Only Admin can publish results.</div>`;
+            }
+
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    ${adminForm}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit max-h-[600px] overflow-y-auto">
+                        <h3 class="text-lg font-bold text-white mb-4">Published Results</h3>
+                        <div class="space-y-4">
+                            ${state.results.map(res => {
+                                const prog = state.programmes.find(p => p.id === res.progId);
+                                const c1 = state.candidates.find(c => c.id.toString() === res.first.toString());
+                                const c2 = state.candidates.find(c => c.id.toString() === res.second.toString());
+                                const c3 = state.candidates.find(c => c.id.toString() === res.third.toString());
+                                return `
+                                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                        <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500">(${prog?.category})</span></h4>
+                                        ${c1 ? `<p class="text-yellow-500 text-sm">🥇 1st: ${c1.name} <span class="text-slate-500">(${state.teams[c1.team].name.split(' ')[0]})</span></p>` : ''}
+                                        ${c2 ? `<p class="text-slate-400 text-sm mt-1">🥈 2nd: ${c2.name} <span class="text-slate-500">(${state.teams[c2.team].name.split(' ')[0]})</span></p>` : ''}
+                                        ${c3 ? `<p class="text-amber-700 text-sm mt-1">🥉 3rd: ${c3.name} <span class="text-slate-500">(${state.teams[c3.team].name.split(' ')[0]})</span></p>` : ''}
+                                    </div>
+                                `;
+                            }).join('') || '<p class="text-slate-500">No results yet.</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate the dropdowns when a program is selected
+        function renderResultDropdowns() {
+            const progId = document.getElementById('resProgId').value;
+            const container = document.getElementById('dynamicDropdowns');
+            const select1 = document.getElementById('res1');
+            const select2 = document.getElementById('res2');
+            const select3 = document.getElementById('res3');
+
+            if (!progId) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            const prog = state.programmes.find(p => p.id === progId);
+            const eligibleCands = state.candidates.filter(c => c.category === prog.category || prog.category === 'General');
+            
+            let optionsHTML = `<option value="">-- Select Winner --</option>` + eligibleCands.map(c => 
+                `<option value="${c.id}">${c.regNo} - ${c.name} (${state.teams[c.team].name.split(' ')[0]})</option>`
+            ).join('');
+
+            select1.innerHTML = optionsHTML;
+            select2.innerHTML = `<option value="">-- Optional --</option>` + optionsHTML.replace(`<option value="">-- Select Winner --</option>`, '');
+            select3.innerHTML = `<option value="">-- Optional --</option>` + optionsHTML.replace(`<option value="">-- Select Winner --</option>`, '');
+
+            container.classList.remove('hidden');
+        }
+
+        // Integrate exactly with your requested snippet flow
+        function publishResult(e) {
+            e.preventDefault();
+            const progId = document.getElementById('resProgId').value;
+            const first = document.getElementById('res1').value;
+            const second = document.getElementById('res2').value;
+            const third = document.getElementById('res3').value;
+
+            if (!first) return customAlert("First place is mandatory!", "error");
+
+            const resultData = { id: Date.now(), progId, first, second, third };
+            
+            // Check if result already exists and overwrite it
+            const existingIdx = state.results.findIndex(r => r.progId === progId);
+            
+            if (existingIdx >= 0) {
+                 customConfirm("A result for this program already exists. Overwrite?", () => {
+                     state.results[existingIdx] = resultData;
+                     saveState();
+                     customAlert("Result Updated & Scores Recalculated!");
+                     render();
+                 });
+                 return; // Halt execution, wait for confirm
+            } else {
+                state.results.push(resultData);
+            }
+
+            saveState();
+            customAlert("Result Published & Scores Updated!");
+            render();
+        }
+
+        // Initialize App
+        window.onload = render;
+    </script>
+</body>
+</html>
+
