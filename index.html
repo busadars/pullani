@@ -58,6 +58,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // YOUR EXACT FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyCIbvk4teIJ6AlfaXbFgDMgCWpnekNwmx8",
             authDomain: "pullani-6a39b.firebaseapp.com",
@@ -71,9 +72,8 @@
         const appInit = initializeApp(firebaseConfig);
         const auth = getAuth(appInit);
         const db = getFirestore(appInit);
-        const APP_ID = 'pullani-6a39b'; 
 
-        // --- DEFAULT DATA ---
+        // --- DEFAULT DATA (If Database is empty) ---
         const DEFAULT_TEAMS = {
             admin: { id: 'admin', name: 'Main Admin', pass: 'admin26' },
             teamA: { id: 'teamA', name: 'Al-Shams', pass: 'shams26', color: 'text-rose-400' },
@@ -129,30 +129,15 @@
                 await signInAnonymously(auth); 
             } catch (e) { 
                 console.error("Auth failed:", e);
-                document.getElementById('app').innerHTML = `
-                    <div class="flex items-center justify-center min-h-screen text-center p-6">
-                        <div class="bg-slate-900 border border-red-500/30 p-8 rounded-2xl max-w-lg w-full">
-                            <div class="text-red-500 text-5xl mb-4">⚠️</div>
-                            <h2 class="text-white text-xl font-bold mb-2">Firebase Connection Blocked</h2>
-                            <p class="text-red-400 mb-6 bg-red-950/50 border border-red-900 p-3 rounded-lg text-sm">${e.message}</p>
-                            <p class="text-sm text-slate-300">
-                                <b>How to fix this:</b><br><br>
-                                1. Go to your Firebase Console.<br>
-                                2. Click <b>Authentication</b> on the left.<br>
-                                3. Click the <b>Sign-in method</b> tab.<br>
-                                4. Click <b>Anonymous</b> and switch to <b>Enable</b>.<br>
-                                5. Refresh this page.
-                            </p>
-                        </div>
-                    </div>
-                `;
+                window.showAlert("Database Connection Failed. Check Firebase Auth.", "error");
             }
         };
 
         onAuthStateChanged(auth, (user) => {
             state.user = user;
             if (user) {
-                const configRef = doc(db, 'artifacts', APP_ID, 'public', 'settings', 'config');
+                // USING SIMPLE ROOT COLLECTIONS NOW
+                const configRef = doc(db, 'settings', 'config');
                 onSnapshot(configRef, (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
@@ -164,17 +149,15 @@
                     render();
                 });
 
-                const candRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'candidates');
+                const candRef = collection(db, 'candidates');
                 onSnapshot(candRef, (snap) => {
-                    // Update state.candidates exactly as they are in the database
                     state.candidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    console.log("Loaded Candidates from Database:", state.candidates);
                     state.dbReady = true;
-                    // Sort candidates by registration number to keep table organized
-                    state.candidates.sort((a, b) => (a.regNo || '').localeCompare(b.regNo || ''));
                     render();
                 });
 
-                const resRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'results');
+                const resRef = collection(db, 'results');
                 onSnapshot(resRef, (snap) => {
                     state.results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     render();
@@ -191,7 +174,7 @@
             document.getElementById('toastMsg').innerText = msg;
             document.getElementById('toastIcon').innerText = type === 'error' ? '⚠️' : '✨';
             toast.className = `fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm translate-y-0 ${type === 'error' ? 'bg-red-950/90 border border-red-500/50 text-red-200' : 'bg-emerald-950/90 border border-emerald-500/50 text-emerald-200'}`;
-            setTimeout(() => { toast.classList.add('translate-y-[-200%]'); toast.classList.remove('translate-y-0'); }, 4000);
+            setTimeout(() => { toast.classList.add('translate-y-[-200%]'); toast.classList.remove('translate-y-0'); }, 4000); 
         };
 
         let pendingAction = null;
@@ -267,9 +250,9 @@
                 const updatedTeams = { ...state.teams };
                 updatedTeams[teamKey].name = newName;
                 try {
-                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'settings', 'config'), { teams: updatedTeams });
+                    await updateDoc(doc(db, 'settings', 'config'), { teams: updatedTeams });
                     window.showAlert("Team Name Updated!");
-                } catch(e) { window.showAlert("Failed to update: " + e.message, "error"); }
+                } catch(e) { window.showAlert("Failed to update.", "error"); }
             });
         };
 
@@ -278,9 +261,9 @@
                 if(!newName || newName === currentName) return;
                 const updatedProgs = state.programs.map(p => p.id === progId ? { ...p, name: newName } : p);
                 try {
-                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'settings', 'config'), { programs: updatedProgs });
+                    await updateDoc(doc(db, 'settings', 'config'), { programs: updatedProgs });
                     window.showAlert("Program Name Updated!");
-                } catch(e) { window.showAlert("Failed to update: " + e.message, "error"); }
+                } catch(e) { window.showAlert("Failed to update.", "error"); }
             });
         };
 
@@ -288,64 +271,52 @@
             window.openPrompt(`Edit Participant Name`, currentName, async (newName) => {
                 if(!newName || newName === currentName) return;
                 try {
-                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'candidates', id), { name: newName });
+                    await updateDoc(doc(db, 'candidates', id), { name: newName });
                     window.showAlert("Participant Name Updated!");
-                } catch(e) { window.showAlert("Failed to update: " + e.message, "error"); }
+                } catch(e) { window.showAlert("Failed to update.", "error"); }
             });
         };
 
         window.addNewProgram = async (e) => {
             e.preventDefault();
             const name = document.getElementById('newProgName').value;
-            const cat = document.getElementById('newProgCat').value; // Category of the program (Junior, Senior, General)
+            const cat = document.getElementById('newProgCat').value;
             const type = document.getElementById('newProgType').value;
             const id = 'p' + Date.now(); 
 
             const newProg = { id, name, cat, type };
             const updatedProgs = [...state.programs, newProg];
-
-            const btn = document.getElementById('addProgBtn');
-            btn.innerText = "Saving...";
             
             try {
-                await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'settings', 'config'), { programs: updatedProgs });
+                await updateDoc(doc(db, 'settings', 'config'), { programs: updatedProgs });
                 window.showAlert("New Program Added!");
                 e.target.reset();
-            } catch(err) { window.showAlert("Failed to add program: " + err.message, "error"); }
-            finally { btn.innerText = "+ Add Program"; }
+            } catch(err) { window.showAlert("Failed to add program", "error"); }
         };
 
-        // --- ADD CANDIDATE ---
         window.addCandidate = async (e) => {
             e.preventDefault();
             
             if (!state.user) {
-                return window.showAlert("Database not connected! Did you enable Anonymous Auth in Firebase?", "error");
+                return window.showAlert("Database not connected! Refresh the page.", "error");
             }
 
-            const name = document.getElementById('cName').value.trim();
-            const regNo = document.getElementById('cReg').value.trim();
-            const cat = document.getElementById('cCat').value; // Only Junior or Senior
+            const name = document.getElementById('cName').value;
+            const regNo = document.getElementById('cReg').value;
+            const cat = document.getElementById('cCat').value;
             const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
 
-            if (!name || !regNo) {
-                return window.showAlert("Name and Reg No are required.", "error");
-            }
-
             const btn = document.getElementById('addCandBtn');
-            btn.innerText = "Syncing..."; btn.disabled = true;
+            btn.innerText = "Saving to Cloud..."; 
+            btn.disabled = true;
 
             try {
-                // Save to Firestore
-                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'candidates'), {
-                    name, 
-                    regNo, 
-                    cat, 
-                    team, 
-                    timestamp: Date.now()
+                // SAVING TO SIMPLE ROOT DIRECTORY: "candidates"
+                await addDoc(collection(db, 'candidates'), {
+                    name, regNo, cat, team, timestamp: Date.now()
                 });
                 window.showAlert("Candidate Synced Successfully!");
-                e.target.reset(); // Clear the form
+                e.target.reset(); 
             } catch (err) { 
                 console.error("Firebase Save Error:", err);
                 window.showAlert("Save Failed: " + err.message, "error"); 
@@ -359,9 +330,9 @@
         window.deleteCandidate = (id) => {
             window.openConfirm("Permanently delete candidate?", async () => {
                 try {
-                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'candidates', id));
+                    await deleteDoc(doc(db, 'candidates', id));
                     window.showAlert("Deleted globally.");
-                } catch(e) { window.showAlert("Failed to delete: " + e.message, "error"); }
+                } catch(e) { window.showAlert("Failed to delete.", "error"); }
             });
         };
 
@@ -371,31 +342,27 @@
             const container = document.getElementById('rSelectors');
             
             if (!prog) return container.innerHTML = '';
-            
-            // LOGIC FIX:
-            // If the program is 'General', BOTH Juniors and Seniors are eligible (so we return true for all).
-            // If the program is 'Junior', only Juniors are eligible.
-            // If the program is 'Senior', only Seniors are eligible.
-            const eligibleCands = state.candidates.filter(c => {
-                if (prog.cat === 'General') return true; 
-                return c.cat === prog.cat;
-            });
 
+            // LOGIC: If it's a General program, it shows ALL Juniors and Seniors. 
+            // If it's Junior/Senior, it only shows that specific category.
+            const eligibleCands = state.candidates.filter(c => prog.cat === 'General' ? true : c.cat === prog.cat);
+            
             let optionsHtml = `<option value="">-- Select Winner --</option>`;
             eligibleCands.forEach(c => {
                 const teamName = state.teams[c.team]?.name || 'Unknown';
-                // Show RegNo, Name, Category (if general event), and Team
-                const catLabel = prog.cat === 'General' ? `[${c.cat}] ` : '';
-                optionsHtml += `<option value="${c.id}">${c.regNo} - ${catLabel}${c.name} (${teamName})</option>`;
+                // Show [Junior]/[Senior] next to name only during General events so you know who they are
+                const candDisplayCat = prog.cat === 'General' ? ` [${c.cat}]` : '';
+                optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name}${candDisplayCat} (${teamName})</option>`;
             });
 
             container.innerHTML = `
-                <div class="mt-4 space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800">
+                <div class="mt-4 space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
+                    ${prog.cat === 'General' ? `<p class="text-[10px] text-pink-400 uppercase tracking-widest font-bold mb-2">Notice: General Event (Juniors & Seniors listed below)</p>` : ''}
                     <div><label class="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Pts)</label><select id="rFirst" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
                     <div><label class="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Pts)</label><select id="rSecond" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
                     <div><label class="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Pts)</label><select id="rThird" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
                 </div>
-                <button type="submit" id="publishBtn" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition">Publish Live Result</button>
+                <button type="submit" id="publishBtn" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-900/50">Publish Live Result</button>
             `;
         };
 
@@ -413,7 +380,7 @@
             const pushToCloud = async () => {
                 document.getElementById('publishBtn').innerText = "Publishing...";
                 try {
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'results', progId), newResult);
+                    await setDoc(doc(db, 'results', progId), newResult);
                     window.showAlert("Results Synced!");
                     document.getElementById('rProg').value = "";
                     document.getElementById('rSelectors').innerHTML = "";
@@ -558,19 +525,23 @@
                         <div class="lg:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit">
                             <h3 class="font-bold text-white mb-4">Add to Database</h3>
                             <form onsubmit="addCandidate(event)" class="space-y-4">
-                                <div><input type="text" id="cName" required placeholder="Candidate Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"></div>
-                                <div><input type="text" id="cReg" required placeholder="Chest / Reg No" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"></div>
+                                <div><input type="text" id="cName" required placeholder="Candidate Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
+                                <div><input type="text" id="cReg" required placeholder="Chest / Reg No" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
                                 
-                                <!-- ONLY JUNIOR OR SENIOR CAN BE SELECTED -->
                                 <div>
-                                    <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+                                    <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
                                         <option value="Junior">Junior</option>
                                         <option value="Senior">Senior</option>
                                     </select>
                                 </div>
 
-                                ${isAdmin ? `<div><select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"><option value="teamA">${state.teams.teamA.name}</option><option value="teamB">${state.teams.teamB.name}</option></select></div>` : ''}
-                                <button type="submit" id="addCandBtn" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-xl transition shadow-lg">Sync Candidate</button>
+                                ${isAdmin ? `<div>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Team</label>
+                                    <select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option value="teamA">${state.teams.teamA.name}</option><option value="teamB">${state.teams.teamB.name}</option></select>
+                                </div>` : ''}
+                                
+                                <button type="submit" id="addCandBtn" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-xl transition shadow-lg mt-2">Sync Candidate</button>
                             </form>
                         </div>
                         <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
@@ -581,7 +552,7 @@
                                         <tr><th class="p-3">Reg No</th><th class="p-3">Name</th><th class="p-3">Cat</th><th class="p-3">Team</th><th class="p-3">Action</th></tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        ${state.candidates.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-500">No candidates added yet.</td></tr>` : ''}
+                                        ${state.candidates.length === 0 ? `<tr><td colspan="5" class="text-center p-6 text-slate-500">No candidates found in database.</td></tr>` : ''}
                                         ${state.candidates.map(c => `
                                             <tr class="hover:bg-slate-800/50">
                                                 <td class="p-3 text-pink-400 font-mono">${c.regNo}</td>
@@ -608,9 +579,9 @@
                     <div class="bg-slate-900 border border-pink-500/30 p-5 rounded-2xl mb-6 shadow-lg">
                         <h3 class="font-bold text-pink-400 mb-3 flex items-center gap-2"><span>➕</span> Add Custom Program</h3>
                         <form onsubmit="addNewProgram(event)" class="flex flex-wrap gap-4 items-end">
-                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-1">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Category</label><select id="newProgCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"><option>Junior</option><option>Senior</option><option>General</option></select></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Type</label><select id="newProgType" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"><option>Stage</option><option>Non-Stage</option></select></div>
+                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-1">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Category</label><select id="newProgCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option>Junior</option><option>Senior</option><option>General</option></select></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Type</label><select id="newProgType" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option>Stage</option><option>Non-Stage</option></select></div>
                             <button type="submit" id="addProgBtn" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-2 rounded-lg h-[42px] transition">+ Add Program</button>
                         </form>
                     </div>
@@ -641,7 +612,7 @@
                             <div class="bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl h-fit">
                                 <h3 class="font-bold text-emerald-400 mb-4 text-lg">Push Result to Cloud</h3>
                                 <form onsubmit="publishResult(event)">
-                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-3 text-white outline-none focus:border-emerald-500">
+                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-3 text-white outline-none">
                                         <option value="">-- Choose Program --</option>
                                         ${state.programs.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
                                     </select>
@@ -654,7 +625,7 @@
                         <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
                             <h3 class="font-bold text-white mb-4 text-lg">Cloud Results Database</h3>
                             <div class="space-y-3 overflow-y-auto flex-1 pr-2">
-                                ${state.results.length === 0 ? `<div class="text-slate-500 text-center py-4">No results published yet.</div>` : ''}
+                                ${state.results.length === 0 ? `<div class="text-center p-6 text-slate-500">No results published yet.</div>` : ''}
                                 ${state.results.map(res => {
                                     const prog = state.programs.find(p => p.id === res.progId);
                                     const c1 = state.candidates.find(c => c.id === res.first);
