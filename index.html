@@ -3,38 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aura Fest 2026 - Live Portal</title>
+    <title>Aura Fest 2026 - Official Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; }
         .tab-active { border-bottom: 2px solid #ec4899; color: #ec4899; }
         .tab-inactive { border-bottom: 2px solid transparent; color: #94a3b8; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
 <body>
-
-    <!-- Error Catcher: Prevents Black Screen -->
-    <script>
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            document.body.innerHTML = `
-                <div style="padding: 40px; text-align: center; color: #ef4444; font-family: sans-serif;">
-                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">⚠️ Application Error</h1>
-                    <p style="margin-bottom: 10px;">The app crashed. Please show this error to the developer:</p>
-                    <code style="background: #450a0a; padding: 15px; border-radius: 8px; display: inline-block; text-align: left;">
-                        ${msg}<br>Line: ${lineNo}
-                    </code>
-                </div>`;
-            return false;
-        };
-    </script>
 
     <div id="toast" class="fixed top-5 right-5 z-[100] transform translate-y-[-200%] transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm">
         <span id="toastIcon"></span>
         <span id="toastMsg"></span>
     </div>
 
-    <!-- Confirm Modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
             <div class="text-4xl mb-4">⚠️</div>
@@ -47,12 +35,36 @@
         </div>
     </div>
 
-    <div id="app" class="min-h-screen flex flex-col"></div>
+    <div id="app" class="min-h-screen flex flex-col">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-slate-500 font-semibold tracking-wider uppercase text-sm animate-pulse">Connecting to your Firebase Database...</p>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        // --- DATA & CONFIGURATION ---
-        const STORAGE_KEY = "aura_fest_data_v4";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCIbvk4teIJ6AlfaXbFgDMgCWpnekNwmx8",
+            authDomain: "pullani-6a39b.firebaseapp.com",
+            projectId: "pullani-6a39b",
+            storageBucket: "pullani-6a39b.firebasestorage.app",
+            messagingSenderId: "617480764841",
+            appId: "1:617480764841:web:c22959689a7003a31498b8",
+            measurementId: "G-DX50SRTWJS"
+        };
         
+        const appInit = initializeApp(firebaseConfig);
+        const auth = getAuth(appInit);
+        const db = getFirestore(appInit);
+        
+        const APP_ID = 'pullani-6a39b'; 
+
         const TEAMS = {
             admin: { id: 'admin', name: 'Main Admin', pass: 'admin26' },
             teamA: { id: 'teamA', name: 'Al-Shams', pass: 'shams26', color: 'text-rose-400' },
@@ -60,24 +72,20 @@
         };
 
         const PROGRAMS = [
-            // Junior Stage
             { id: 'p1', name: 'ഖിറാഅത്ത്', cat: 'Junior', type: 'Stage' },
             { id: 'p2', name: 'സിംഗിൾ സോങ് (മദ്ഹ്)', cat: 'Junior', type: 'Stage' },
             { id: 'p3', name: 'കഥ പറച്ചിൽ', cat: 'Junior', type: 'Stage' },
-            // Junior Non-Stage
             { id: 'p4', name: 'പെൻസിൽ ഡ്രോയിംഗ്', cat: 'Junior', type: 'Non-Stage' },
             { id: 'p5', name: 'പെയിന്റിംഗ്', cat: 'Junior', type: 'Non-Stage' },
             { id: 'p6', name: 'മെമ്മറി ടെസ്റ്റ്', cat: 'Junior', type: 'Non-Stage' },
             { id: 'p7', name: 'ചിത്രരചന', cat: 'Junior', type: 'Non-Stage' },
             { id: 'p8', name: 'എഴുത്ത് മത്സരം', cat: 'Junior', type: 'Non-Stage' },
             { id: 'p9', name: 'ഗ്രന്ഥവായന', cat: 'Junior', type: 'Non-Stage' },
-            // Senior Stage
             { id: 'p10', name: 'മദ്ഹ് സോങ്', cat: 'Senior', type: 'Stage' },
             { id: 'p11', name: 'ഖിറാഅത്ത്', cat: 'Senior', type: 'Stage' },
             { id: 'p12', name: 'പ്രസംഗം (മലയാളം)', cat: 'Senior', type: 'Stage' },
             { id: 'p13', name: 'പ്രസംഗം (ഇംഗ്ലീഷ്)', cat: 'Senior', type: 'Stage' },
             { id: 'p14', name: 'തത്സമയ കവിതാരചന', cat: 'Senior', type: 'Stage' },
-            // Senior Non-Stage
             { id: 'p15', name: 'കയ്യെഴുത്ത്', cat: 'Senior', type: 'Non-Stage' },
             { id: 'p16', name: 'പദപയറ്റ്', cat: 'Senior', type: 'Non-Stage' },
             { id: 'p17', name: 'സ്പെല്ലിംഗ് ബി', cat: 'Senior', type: 'Non-Stage' },
@@ -86,11 +94,9 @@
             { id: 'p20', name: 'ഗ്രന്ഥവായന', cat: 'Senior', type: 'Non-Stage' },
             { id: 'p21', name: 'അടിക്കുറിപ്പ് നിർമ്മാണം', cat: 'Senior', type: 'Non-Stage' },
             { id: 'p22', name: 'തലക്കെട്ട് നിർമ്മാണം', cat: 'Senior', type: 'Non-Stage' },
-            // General Stage
             { id: 'p23', name: 'ബുർദ', cat: 'General', type: 'Stage' },
             { id: 'p24', name: 'മാലപ്പാട്ട്', cat: 'General', type: 'Stage' },
             { id: 'p25', name: 'ഗ്രൂപ്പ് സോങ്', cat: 'General', type: 'Stage' },
-            // General Non-Stage
             { id: 'p26', name: 'ക്വിസ്', cat: 'General', type: 'Non-Stage' },
             { id: 'p27', name: 'മെമ്മറി ടെസ്റ്റ്', cat: 'General', type: 'Non-Stage' },
             { id: 'p28', name: 'മാഗസിൻ നിർമ്മാണം', cat: 'General', type: 'Non-Stage' },
@@ -98,39 +104,76 @@
             { id: 'p30', name: 'പത്രനിർമ്മാണം', cat: 'General', type: 'Non-Stage' }
         ];
 
-        // --- STATE MANAGEMENT ---
-        let defaultState = {
-            role: null,
+        let state = {
+            user: null,
+            role: sessionStorage.getItem('aura_role') || null, 
             tab: 'dashboard',
             candidates: [],
-            results: []
+            results: [],
+            dbReady: false
         };
 
-        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState;
-        let pendingAction = null;
+        const initDB = async () => {
+            try {
+                await signInAnonymously(auth); 
+            } catch (e) {
+                console.error("Auth failed:", e);
+                document.getElementById('app').innerHTML = `
+                    <div class="flex items-center justify-center min-h-screen text-center p-6">
+                        <div class="bg-slate-900 border border-red-500/30 p-8 rounded-2xl max-w-lg w-full">
+                            <div class="text-red-500 text-5xl mb-4">⚠️</div>
+                            <h2 class="text-white text-xl font-bold mb-2">Database Connection Failed</h2>
+                            <p class="text-red-400 mb-6 bg-red-950/50 border border-red-900 p-3 rounded-lg text-sm">${e.message}</p>
+                            <p class="text-sm text-slate-300">
+                                <b>How to fix this:</b><br><br>
+                                1. Go to your Firebase Console.<br>
+                                2. Click <b>Authentication</b> on the left.<br>
+                                3. Click the <b>Sign-in method</b> tab.<br>
+                                4. Click <b>Anonymous</b> and switch the toggle to <b>Enable</b>.<br>
+                                5. Refresh this page.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        };
 
-        function saveState() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        }
+        onAuthStateChanged(auth, (user) => {
+            state.user = user;
+            if (user) {
+                const candRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'candidates');
+                onSnapshot(candRef, (snap) => {
+                    state.candidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    state.dbReady = true;
+                    render();
+                }, (error) => {
+                    console.error("Firebase read error (Candidates):", error);
+                });
 
-        // --- UTILITIES ---
+                const resRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'results');
+                onSnapshot(resRef, (snap) => {
+                    state.results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                }, (error) => {
+                    console.error("Firebase read error (Results):", error);
+                });
+            }
+        });
+
+        initDB(); 
+
         window.showAlert = (msg, type = 'success') => {
             const toast = document.getElementById('toast');
             document.getElementById('toastMsg').innerText = msg;
             document.getElementById('toastIcon').innerText = type === 'error' ? '⚠️' : '✨';
-            
-            if (type === 'error') {
-                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm bg-red-950/90 border border-red-500/50 text-red-200 translate-y-0";
-            } else {
-                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 translate-y-0";
-            }
-
+            toast.className = `fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm translate-y-0 ${type === 'error' ? 'bg-red-950/90 border border-red-500/50 text-red-200' : 'bg-emerald-950/90 border border-emerald-500/50 text-emerald-200'}`;
             setTimeout(() => {
                 toast.classList.add('translate-y-[-200%]');
                 toast.classList.remove('translate-y-0');
             }, 3000);
         };
 
+        let pendingAction = null;
         window.openConfirm = (msg, callback) => {
             document.getElementById('confirmText').innerText = msg;
             document.getElementById('confirmModal').classList.remove('hidden');
@@ -149,22 +192,6 @@
             closeConfirm();
         };
 
-        // --- SCORING LOGIC (10 - 5 - 3) ---
-        function getScores() {
-            let scores = { teamA: 0, teamB: 0 };
-            state.results.forEach(res => {
-                const c1 = state.candidates.find(c => c.id === res.first);
-                const c2 = state.candidates.find(c => c.id === res.second);
-                const c3 = state.candidates.find(c => c.id === res.third);
-
-                if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
-                if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
-                if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
-            });
-            return scores;
-        }
-
-        // --- CORE FUNCTIONS ---
         window.handleLogin = (e) => {
             e.preventDefault();
             const role = document.getElementById('loginRole').value;
@@ -172,163 +199,197 @@
             
             if (TEAMS[role] && TEAMS[role].pass === pass) {
                 state.role = role;
+                sessionStorage.setItem('aura_role', role);
                 state.tab = 'dashboard';
-                saveState();
-                showAlert("Logged in successfully!");
+                window.showAlert("Secure Database Connected!");
                 render();
             } else {
-                showAlert("Invalid Password!", "error");
+                window.showAlert("Invalid Password!", "error");
             }
         };
 
         window.handleLogout = () => {
             state.role = null;
-            saveState();
+            sessionStorage.removeItem('aura_role');
             render();
         };
 
         window.switchTab = (tab) => {
             state.tab = tab;
-            saveState();
             render();
         };
 
-        window.addCandidate = (e) => {
+        window.addCandidate = async (e) => {
             e.preventDefault();
+            if (!state.user) return window.showAlert("Not connected to database", "error");
+
             const name = document.getElementById('cName').value;
             const regNo = document.getElementById('cReg').value;
             const cat = document.getElementById('cCat').value;
             const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
 
-            state.candidates.push({ id: Date.now().toString(), name, regNo, cat, team });
-            saveState();
-            showAlert("Candidate Registered!");
-            render();
+            const btn = document.getElementById('addCandBtn');
+            btn.innerText = "Syncing...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'candidates'), {
+                    name, regNo, cat, team, timestamp: Date.now()
+                });
+                window.showAlert("Candidate Synced to Cloud!");
+                e.target.reset(); 
+            } catch (err) {
+                console.error(err);
+                window.showAlert("Error saving to database.", "error");
+            } finally {
+                btn.innerText = "Sync Candidate";
+                btn.disabled = false;
+            }
         };
 
         window.deleteCandidate = (id) => {
-            openConfirm("Delete this candidate?", () => {
-                state.candidates = state.candidates.filter(c => c.id !== id);
-                saveState();
-                showAlert("Candidate deleted.");
-                render();
+            window.openConfirm("Permanently delete this candidate from the cloud database?", async () => {
+                if (!state.user) return;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'candidates', id));
+                    window.showAlert("Candidate deleted globally.");
+                } catch(e) {
+                    console.error(e);
+                    window.showAlert("Failed to delete.", "error");
+                }
             });
         };
 
-        // Dynamic Dropdowns for Results
         window.populateResultDropdowns = () => {
             const progId = document.getElementById('rProg').value;
             const prog = PROGRAMS.find(p => p.id === progId);
             const container = document.getElementById('rSelectors');
             
-            if (!prog) {
-                container.innerHTML = '';
-                return;
-            }
+            if (!prog) return container.innerHTML = '';
 
-            // Filter eligible candidates (General programs allow Junior and Senior)
-            const eligibleCands = state.candidates.filter(c => 
-                prog.cat === 'General' ? true : c.cat === prog.cat
-            );
+            const eligibleCands = state.candidates.filter(c => prog.cat === 'General' ? true : c.cat === prog.cat);
 
             let optionsHtml = `<option value="">-- Select Winner --</option>`;
             eligibleCands.forEach(c => {
-                optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name} (${TEAMS[c.team].name})</option>`;
+                const teamName = TEAMS[c.team]?.name || 'Unknown';
+                optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name} (${teamName})</option>`;
             });
 
             container.innerHTML = `
                 <div class="mt-4 space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800">
                     <div>
                         <label class="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Pts)</label>
-                        <select id="rFirst" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                        <select id="rFirst" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Pts)</label>
-                        <select id="rSecond" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                        <select id="rSecond" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Pts)</label>
-                        <select id="rThird" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                        <select id="rThird" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select>
                     </div>
                 </div>
-                <button type="submit" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition">Publish Result</button>
+                <button type="submit" id="publishBtn" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)]">Publish Live Result</button>
             `;
         };
 
-        window.publishResult = (e) => {
+        window.publishResult = async (e) => {
             e.preventDefault();
+            if (!state.user) return window.showAlert("Database connection error", "error");
+
             const progId = document.getElementById('rProg').value;
             const first = document.getElementById('rFirst').value;
             const second = document.getElementById('rSecond').value;
             const third = document.getElementById('rThird').value;
 
-            if (!first) return showAlert("1st place is mandatory!", "error");
+            if (!first) return window.showAlert("1st place is mandatory!", "error");
 
-            const newResult = { progId, first, second, third };
-            const existingIdx = state.results.findIndex(r => r.progId === progId);
+            const newResult = { progId, first, second, third, timestamp: Date.now() };
+            const existingRes = state.results.find(r => r.progId === progId);
 
-            if (existingIdx >= 0) {
-                openConfirm("Results for this program already exist. Overwrite them?", () => {
-                    state.results[existingIdx] = newResult;
-                    saveState();
-                    showAlert("Results Overwritten!");
-                    render();
-                });
+            const pushToCloud = async () => {
+                const btn = document.getElementById('publishBtn');
+                btn.innerText = "Publishing...";
+                btn.disabled = true;
+                try {
+                    await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'results', progId), newResult);
+                    window.showAlert("Results Synced to Scoreboard!");
+                    document.getElementById('rProg').value = "";
+                    document.getElementById('rSelectors').innerHTML = "";
+                } catch(e) {
+                    console.error(e);
+                    window.showAlert("Failed to publish.", "error");
+                } finally {
+                    if(document.getElementById('publishBtn')) {
+                        document.getElementById('publishBtn').innerText = "Publish Live Result";
+                        document.getElementById('publishBtn').disabled = false;
+                    }
+                }
+            };
+
+            if (existingRes) {
+                window.openConfirm("Results for this program already exist on the cloud. Overwrite them?", pushToCloud);
             } else {
-                state.results.push(newResult);
-                saveState();
-                showAlert("Results Published!");
-                render();
+                pushToCloud();
             }
         };
 
-
-        // --- RENDERING VIEWS ---
-        function render() {
-            const app = document.getElementById('app');
-            if (!state.role) {
-                app.innerHTML = renderLogin();
-            } else {
-                app.innerHTML = renderApp();
-            }
+        function getScores() {
+            let scores = { teamA: 0, teamB: 0 };
+            state.results.forEach(res => {
+                const c1 = state.candidates.find(c => c.id === res.first);
+                const c2 = state.candidates.find(c => c.id === res.second);
+                const c3 = state.candidates.find(c => c.id === res.third);
+                if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
+                if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
+                if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
+            });
+            return scores;
         }
 
-        function renderLogin() {
-            return `
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.dbReady) return; 
+
+            if (!state.role) {
+                app.innerHTML = `
                 <div class="flex-1 flex items-center justify-center p-4">
                     <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
                         <div class="text-center mb-8">
                             <h1 class="text-3xl font-extrabold text-white mb-2">Aura Fest</h1>
-                            <p class="text-sm text-slate-400">Secure Organizer Login</p>
+                            <p class="text-xs text-emerald-400 font-semibold border border-emerald-900 bg-emerald-950/30 px-3 py-1 rounded-full inline-flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Cloud Database Connected
+                            </p>
                         </div>
                         <form onsubmit="handleLogin(event)" class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Account Role</label>
-                                <select id="loginRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Account Role</label>
+                                <select id="loginRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500">
                                     <option value="admin">Admin</option>
                                     <option value="teamA">Team Al-Shams</option>
                                     <option value="teamB">Team Al-Qamar</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Password</label>
-                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Enter password">
+                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Password</label>
+                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500" placeholder="Enter password">
                             </div>
-                            <button type="submit" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl transition mt-2">Login</button>
+                            <button type="submit" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl transition mt-4 shadow-lg shadow-pink-900/50">Secure Login</button>
                         </form>
                     </div>
                 </div>`;
-        }
+                return;
+            }
 
-        function renderApp() {
             const scores = getScores();
             
             let navHtml = `
-                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4">
-                    <button onclick="switchTab('dashboard')" class="px-6 py-4 font-semibold text-sm ${state.tab==='dashboard'?'tab-active':'tab-inactive'}">Dashboard</button>
-                    <button onclick="switchTab('candidates')" class="px-6 py-4 font-semibold text-sm ${state.tab==='candidates'?'tab-active':'tab-inactive'}">Candidates</button>
-                    <button onclick="switchTab('programs')" class="px-6 py-4 font-semibold text-sm ${state.tab==='programs'?'tab-active':'tab-inactive'}">Programs</button>
-                    <button onclick="switchTab('results')" class="px-6 py-4 font-semibold text-sm ${state.tab==='results'?'tab-active':'tab-inactive'}">Results</button>
+                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4 scrollbar-hide">
+                    <button onclick="switchTab('dashboard')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='dashboard'?'tab-active':'tab-inactive'}">Live Dashboard</button>
+                    <button onclick="switchTab('candidates')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='candidates'?'tab-active':'tab-inactive'}">Cloud Directory</button>
+                    <button onclick="switchTab('programs')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='programs'?'tab-active':'tab-inactive'}">Programs</button>
+                    <button onclick="switchTab('results')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='results'?'tab-active':'tab-inactive'}">Official Results</button>
                 </nav>`;
 
             let mainContent = '';
@@ -336,16 +397,28 @@
             if (state.tab === 'dashboard') {
                 mainContent = `
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 text-center">
+                        <div class="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 text-center relative overflow-hidden shadow-lg shadow-rose-900/10">
+                            <div class="absolute top-0 right-0 w-40 h-40 bg-rose-500/10 rounded-full blur-3xl"></div>
                             <h3 class="text-xl font-bold text-rose-400 mb-2">Al-Shams</h3>
                             <span class="text-7xl font-black text-white">${scores.teamA}</span>
                             <p class="text-slate-400 mt-2 text-xs uppercase font-bold tracking-widest">Total Points</p>
                         </div>
-                        <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 text-center">
+                        <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 text-center relative overflow-hidden shadow-lg shadow-indigo-900/10">
+                            <div class="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
                             <h3 class="text-xl font-bold text-indigo-400 mb-2">Al-Qamar</h3>
                             <span class="text-7xl font-black text-white">${scores.teamB}</span>
                             <p class="text-slate-400 mt-2 text-xs uppercase font-bold tracking-widest">Total Points</p>
                         </div>
+                    </div>
+                    <div class="mt-6 flex flex-col md:flex-row gap-4">
+                         <div class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                            <span class="text-slate-400 font-semibold text-sm">Total Candidates Synced</span>
+                            <span class="text-2xl font-bold text-white">${state.candidates.length}</span>
+                         </div>
+                         <div class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                            <span class="text-slate-400 font-semibold text-sm">Events Completed</span>
+                            <span class="text-2xl font-bold text-emerald-400">${state.results.length} / ${PROGRAMS.length}</span>
+                         </div>
                     </div>`;
             }
 
@@ -353,36 +426,49 @@
                 mainContent = `
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div class="lg:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit">
-                            <h3 class="font-bold text-white mb-4">Register Candidate</h3>
+                            <h3 class="font-bold text-white mb-4">Add to Database</h3>
                             <form onsubmit="addCandidate(event)" class="space-y-4">
-                                <input type="text" id="cName" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
-                                <input type="text" id="cReg" required placeholder="Chest / Reg No" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
-                                <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
-                                    <option value="Junior">Junior</option><option value="Senior">Senior</option>
-                                </select>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Candidate Name</label>
+                                    <input type="text" id="cName" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Chest / Reg No.</label>
+                                    <input type="text" id="cReg" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Category</label>
+                                    <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500">
+                                        <option value="Junior">Junior</option><option value="Senior">Senior</option>
+                                    </select>
+                                </div>
                                 ${state.role === 'admin' ? 
-                                    `<select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
-                                        <option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option>
-                                    </select>` : ''}
-                                <button type="submit" class="w-full bg-pink-600 text-white font-bold py-2 rounded-lg">Save Candidate</button>
+                                    `<div>
+                                        <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Assign Team</label>
+                                        <select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500">
+                                            <option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option>
+                                        </select>
+                                    </div>` : ''}
+                                <button type="submit" id="addCandBtn" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-xl transition mt-2 shadow-lg shadow-pink-900/50">Sync Candidate</button>
                             </form>
                         </div>
-                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                            <h3 class="font-bold text-white mb-4">Database (${state.candidates.length})</h3>
-                            <div class="overflow-x-auto">
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
+                            <h3 class="font-bold text-white mb-4">Cloud Directory (${state.candidates.length})</h3>
+                            <div class="overflow-x-auto overflow-y-auto flex-1">
                                 <table class="w-full text-left text-sm whitespace-nowrap">
-                                    <thead class="bg-slate-950 text-slate-400 text-xs uppercase">
+                                    <thead class="bg-slate-950 text-slate-400 text-xs uppercase sticky top-0 z-10 shadow">
                                         <tr><th class="p-3">Reg No</th><th class="p-3">Name</th><th class="p-3">Cat</th><th class="p-3">Team</th><th class="p-3">Action</th></tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
+                                        ${state.candidates.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-500">No candidates found in database.</td></tr>` : ''}
                                         ${state.candidates.map(c => `
-                                            <tr>
+                                            <tr class="hover:bg-slate-800/50 transition-colors">
                                                 <td class="p-3 text-pink-400 font-mono">${c.regNo}</td>
-                                                <td class="p-3 text-white">${c.name}</td>
+                                                <td class="p-3 text-white font-medium">${c.name}</td>
                                                 <td class="p-3 text-slate-300">${c.cat}</td>
-                                                <td class="p-3 ${TEAMS[c.team].color} font-bold">${TEAMS[c.team].name}</td>
+                                                <td class="p-3 ${TEAMS[c.team]?.color} font-bold">${TEAMS[c.team]?.name}</td>
                                                 <td class="p-3">
-                                                    ${state.role === 'admin' ? `<button onclick="deleteCandidate('${c.id}')" class="text-red-400 text-xs border border-red-500/30 px-2 py-1 rounded">Delete</button>` : '-'}
+                                                    ${state.role === 'admin' ? `<button onclick="deleteCandidate('${c.id}')" class="text-red-400 hover:bg-red-950/50 text-xs border border-red-500/30 px-2 py-1 rounded transition">Delete</button>` : '<span class="text-slate-600 text-xs">Restricted</span>'}
                                                 </td>
                                             </tr>`).join('')}
                                     </tbody>
@@ -396,14 +482,17 @@
                 const cats = ['Junior', 'Senior', 'General'];
                 mainContent = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
                 cats.forEach(cat => {
-                    mainContent += `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-                        <h3 class="font-bold text-lg mb-3 text-white border-b border-slate-800 pb-2">${cat} Programs</h3>
+                    mainContent += `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl h-fit">
+                        <h3 class="font-bold text-lg mb-3 text-white border-b border-slate-800 pb-2">${cat}</h3>
                         <ul class="space-y-2">`;
                     PROGRAMS.filter(p => p.cat === cat).forEach(p => {
                         const hasResult = state.results.some(r => r.progId === p.id);
-                        mainContent += `<li class="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between text-slate-300">
-                            <span>${p.name} <span class="text-[10px] text-slate-500 uppercase ml-1">(${p.type})</span></span>
-                            ${hasResult ? '✅' : ''}
+                        mainContent += `<li class="text-sm bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-slate-300">
+                            <div>
+                                <span class="block text-white">${p.name}</span>
+                                <span class="text-[10px] text-slate-500 uppercase tracking-wider">${p.type}</span>
+                            </div>
+                            ${hasResult ? '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-xs border border-emerald-500/50">Done</span>' : '<span class="text-slate-600 text-xs">Pending</span>'}
                         </li>`;
                     });
                     mainContent += `</ul></div>`;
@@ -415,25 +504,28 @@
                 mainContent = `
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         ${state.role === 'admin' ? `
-                            <div class="bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl h-fit">
-                                <h3 class="font-bold text-emerald-400 mb-4 text-lg">Publish Result</h3>
+                            <div class="bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl h-fit shadow-lg shadow-emerald-900/10">
+                                <h3 class="font-bold text-emerald-400 mb-4 text-lg">Push Result to Cloud</h3>
                                 <form onsubmit="publishResult(event)">
-                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
-                                        <option value="">-- Select Program --</option>
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Select Program</label>
+                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-3 text-white outline-none focus:border-emerald-500">
+                                        <option value="">-- Choose Program --</option>
                                         ${PROGRAMS.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
                                     </select>
                                     <div id="rSelectors"></div>
                                 </form>
                             </div>
                         ` : `
-                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-center text-slate-400">
-                                Only Admin can publish results.
+                            <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl flex flex-col items-center justify-center text-slate-400 text-center">
+                                <span class="text-4xl mb-4">🔒</span>
+                                <h3 class="text-white font-bold mb-1">Restricted Access</h3>
+                                <p class="text-sm">Only the Main Admin can publish official results to the cloud.</p>
                             </div>
                         `}
-                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit max-h-[600px] overflow-y-auto">
-                            <h3 class="font-bold text-white mb-4 text-lg">Published Results</h3>
-                            <div class="space-y-3">
-                                ${state.results.length === 0 ? '<p class="text-slate-500">No results yet.</p>' : ''}
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
+                            <h3 class="font-bold text-white mb-4 text-lg">Cloud Results Database (${state.results.length})</h3>
+                            <div class="space-y-3 overflow-y-auto flex-1 pr-2">
+                                ${state.results.length === 0 ? '<div class="text-center p-6 text-slate-500">No results published yet.</div>' : ''}
                                 ${state.results.map(res => {
                                     const prog = PROGRAMS.find(p => p.id === res.progId);
                                     const c1 = state.candidates.find(c => c.id === res.first);
@@ -441,36 +533,33 @@
                                     const c3 = state.candidates.find(c => c.id === res.third);
                                     return `
                                         <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
-                                            <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal">(${prog?.cat})</span></h4>
-                                            <div class="text-sm space-y-1">
-                                                ${c1 ? `<p class="text-yellow-500">1st (10pts): ${c1.name} <span class="text-xs text-slate-500">(${TEAMS[c1.team].name})</span></p>` : ''}
-                                                ${c2 ? `<p class="text-slate-400">2nd (5pts): ${c2.name} <span class="text-xs text-slate-500">(${TEAMS[c2.team].name})</span></p>` : ''}
-                                                ${c3 ? `<p class="text-amber-700">3rd (3pts): ${c3.name} <span class="text-xs text-slate-500">(${TEAMS[c3.team].name})</span></p>` : ''}
+                                            <h4 class="font-bold text-white mb-3 border-b border-slate-800 pb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal ml-1">(${prog?.cat})</span></h4>
+                                            <div class="text-sm space-y-2">
+                                                ${c1 ? `<div class="flex justify-between items-center"><p class="text-yellow-500 font-medium">🥇 1st (10pts): ${c1.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${TEAMS[c1.team]?.name}</span></div>` : ''}
+                                                ${c2 ? `<div class="flex justify-between items-center"><p class="text-slate-300 font-medium">🥈 2nd (5pts): ${c2.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${TEAMS[c2.team]?.name}</span></div>` : ''}
+                                                ${c3 ? `<div class="flex justify-between items-center"><p class="text-amber-700 font-medium">🥉 3rd (3pts): ${c3.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${TEAMS[c3.team]?.name}</span></div>` : ''}
                                             </div>
                                         </div>
                                     `;
-                                }).join('')}
+                                }).reverse().join('')}
                             </div>
                         </div>
                     </div>`;
             }
 
-            return `
-                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
+            app.innerHTML = `
+                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-md">
                     <div>
-                        <h1 class="font-bold text-white text-lg">Aura Fest '26</h1>
-                        <p class="text-xs text-slate-400">Logged in: <span class="font-bold text-white">${TEAMS[state.role].name}</span></p>
+                        <h1 class="font-bold text-white text-lg tracking-tight">Aura Fest '26 <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-2 uppercase tracking-widest font-bold animate-pulse">Live</span></h1>
+                        <p class="text-xs text-slate-400 mt-0.5">Logged in as: <span class="font-bold text-white">${TEAMS[state.role].name}</span></p>
                     </div>
-                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition">Logout</button>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-700">Logout</button>
                 </header>
                 ${navHtml}
-                <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+                <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
                     ${mainContent}
                 </main>`;
         }
-
-        // --- STARTUP ---
-        window.onload = render;
     </script>
 </body>
 </html>
