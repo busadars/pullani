@@ -3,483 +3,474 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aura Girls Fest '26 - Management Portal</title>
+    <title>Aura Fest 2026 - Live Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; }
+        .tab-active { border-bottom: 2px solid #ec4899; color: #ec4899; }
+        .tab-inactive { border-bottom: 2px solid transparent; color: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-pink-500/30">
+<body>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 right-5 z-[100] transform translate-y-[-200%] transition-transform duration-300 bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3">
-        <span id="toastIcon">✨</span>
-        <span id="toastMsg">Action completed successfully!</span>
+    <!-- Error Catcher: Prevents Black Screen -->
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            document.body.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #ef4444; font-family: sans-serif;">
+                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">⚠️ Application Error</h1>
+                    <p style="margin-bottom: 10px;">The app crashed. Please show this error to the developer:</p>
+                    <code style="background: #450a0a; padding: 15px; border-radius: 8px; display: inline-block; text-align: left;">
+                        ${msg}<br>Line: ${lineNo}
+                    </code>
+                </div>`;
+            return false;
+        };
+    </script>
+
+    <div id="toast" class="fixed top-5 right-5 z-[100] transform translate-y-[-200%] transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm">
+        <span id="toastIcon"></span>
+        <span id="toastMsg"></span>
     </div>
 
     <!-- Confirm Modal -->
-    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center transform transition-all scale-100">
-            <div class="w-16 h-16 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">⚠️</div>
-            <p id="confirmText" class="text-white font-semibold text-lg mb-6"></p>
-            candidates: [
-                { id: 1, name: 'Fathima Zohra', team: 'teamA', category: 'Senior', regNo: 'S001' },
-                { id: 2, name: 'Aysha Mariyam', team: 'teamB', category: 'Junior', regNo: 'J001' }
-            ],
-            programmes: [
-                // 1. Junior Stage (ജൂനിയർ സ്റ്റേജ്)
-                { id: 'J1', name: 'ഖിറാഅത്ത് (Qiraat)', type: 'stage', category: 'Junior', code: 'J01' },
-                { id: 'J2', name: 'സിംഗിൾ സോങ് (മദ്ഹ്) (Single Song - Madh)', type: 'stage', category: 'Junior', code: 'J02' },
-                { id: 'J3', name: 'കഥ പറച്ചിൽ (Story Telling)', type: 'stage', category: 'Junior', code: 'J03' },
-                
-                // 2. Junior Non-Stage (ജൂനിയർ നോൺ-സ്റ്റേജ്)
-                { id: 'J4', name: 'പെൻസിൽ ഡ്രോയിംഗ് (Pencil Drawing)', type: 'nonstage', category: 'Junior', code: 'J04' },
-                { id: 'J5', name: 'പെയിന്റിംഗ് (Painting)', type: 'nonstage', category: 'Junior', code: 'J05' },
-                { id: 'J6', name: 'മെമ്മറിടെസ്റ്റ് (Memory Test)', type: 'nonstage', category: 'Junior', code: 'J06' },
-                { id: 'J7', name: 'ചിത്രരചന (Drawing)', type: 'nonstage', category: 'Junior', code: 'J07' },
-                { id: 'J8', name: 'എഴുത്ത് മത്സരം (ഇംഗ്ലീഷ്, മലയാളം, അറബി) (Writing - Eng/Mal/Arb)', type: 'nonstage', category: 'Junior', code: 'J08' },
-                { id: 'J9', name: 'ഗ്രന്ഥവായന (Book Reading)', type: 'nonstage', category: 'Junior', code: 'J09' },
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+            <div class="text-4xl mb-4">⚠️</div>
+            <h3 class="text-lg font-bold text-white mb-2">Are you sure?</h3>
+            <p id="confirmText" class="text-sm text-slate-400 mb-6"></p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeConfirm()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition">Cancel</button>
+                <button onclick="executeConfirm()" class="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-semibold transition">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
 
-                // 3. Senior Stage (സീനിയർ സ്റ്റേജ്)
-                { id: 'S1', name: 'മദ്ഹ് സോങ് (Madh Song)', type: 'stage', category: 'Senior', code: 'S01' },
-                { id: 'S2', name: 'ഖിറാഅത്ത് (Qiraat)', type: 'stage', category: 'Senior', code: 'S02' },
-                { id: 'S3', name: 'പ്രസംഗം (മലയാളം) (Malayalam Speech)', type: 'stage', category: 'Senior', code: 'S03' },
-                { id: 'S4', name: 'പ്രസംഗം (ഇംഗ്ലീഷ്) (English Speech)', type: 'stage', category: 'Senior', code: 'S04' },
-                { id: 'S5', name: 'തത്സമയ കവിതാലാപനം (Instant Poem Recitation)', type: 'stage', category: 'Senior', code: 'S05' },
+    <div id="app" class="min-h-screen flex flex-col"></div>
 
-                // 4. Senior Non-Stage (സീനിയർ നോൺ-സ്റ്റേജ്)
-                { id: 'S6', name: 'കയ്യെഴുത്ത് (ഇംഗ്ലീഷ്, മലയാളം, അറബി) (Handwriting - Eng/Mal/Arb)', type: 'nonstage', category: 'Senior', code: 'S06' },
-                { id: 'S7', name: 'പദസമ്പത്ത് (Vocabulary - English)', type: 'nonstage', category: 'Senior', code: 'S07' },
-                { id: 'S8', name: 'സ്പെല്ലിംഗ് ബി (Spelling Bee)', type: 'nonstage', category: 'Senior', code: 'S08' },
-                { id: 'S9', name: 'കാലിഗ്രാഫി (Calligraphy)', type: 'nonstage', category: 'Senior', code: 'S09' },
-                { id: 'S10', name: 'നാനോ ലിറ്ററേച്ചർ (Nano Literature)', type: 'nonstage', category: 'Senior', code: 'S10' },
-                { id: 'S11', name: 'ഗ്രന്ഥവായന (Book Reading)', type: 'nonstage', category: 'Senior', code: 'S11' },
-                { id: 'S12', name: 'അടിക്കുറിപ്പ് നിർമ്മാണം (Caption Writing)', type: 'nonstage', category: 'Senior', code: 'S12' },
-                { id: 'S13', name: 'തലക്കെട്ട് നിർമ്മാണം (Headline Making)', type: 'nonstage', category: 'Senior', code: 'S13' },
-
-                // 5. General Stage (ജനറൽ സ്റ്റേജ്)
-                { id: 'G1', name: 'ബുർദ (Burdah)', type: 'stage', category: 'General', code: 'G01' },
-                { id: 'G2', name: 'മാലപ്പാട്ട് (Malappattu)', type: 'stage', category: 'General', code: 'G02' },
-                { id: 'G3', name: 'ഗ്രൂപ്പ് സോങ് (Group Song)', type: 'stage', category: 'General', code: 'G03' },
-                
-                // 6. General Non-Stage (ജനറൽ നോൺ-സ്റ്റേജ്)
-                { id: 'G4', name: 'ക്വിസ് (Quiz)', type: 'nonstage', category: 'General', code: 'G04' },
-                { id: 'G5', name: 'മെമ്മറിടെസ്റ്റ് (Memory Test)', type: 'nonstage', category: 'General', code: 'G05' },
-                { id: 'G6', name: 'മാഗസിൻ നിർമ്മാണം (Magazine Making)', type: 'nonstage', category: 'General', code: 'G06' },
-                { id: 'G7', name: 'കൊളാഷ് (Collage)', type: 'nonstage', category: 'General', code: 'G07' },
-                { id: 'G8', name: 'പത്രനിർമ്മാണം (Newspaper Making)', type: 'nonstage', category: 'General', code: 'G08' }
-            ],
-            results: [] // Format: { progId, first: candId, second: candId, third: candId, published: boolean }
+    <script>
+        // --- DATA & CONFIGURATION ---
+        const STORAGE_KEY = "aura_fest_data_v4";
+        
+        const TEAMS = {
+            admin: { id: 'admin', name: 'Main Admin', pass: 'admin26' },
+            teamA: { id: 'teamA', name: 'Al-Shams', pass: 'shams26', color: 'text-rose-400' },
+            teamB: { id: 'teamB', name: 'Al-Qamar', pass: 'qamar26', color: 'text-indigo-400' }
         };
 
-        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+        const PROGRAMS = [
+            // Junior Stage
+            { id: 'p1', name: 'ഖിറാഅത്ത്', cat: 'Junior', type: 'Stage' },
+            { id: 'p2', name: 'സിംഗിൾ സോങ് (മദ്ഹ്)', cat: 'Junior', type: 'Stage' },
+            { id: 'p3', name: 'കഥ പറച്ചിൽ', cat: 'Junior', type: 'Stage' },
+            // Junior Non-Stage
+            { id: 'p4', name: 'പെൻസിൽ ഡ്രോയിംഗ്', cat: 'Junior', type: 'Non-Stage' },
+            { id: 'p5', name: 'പെയിന്റിംഗ്', cat: 'Junior', type: 'Non-Stage' },
+            { id: 'p6', name: 'മെമ്മറി ടെസ്റ്റ്', cat: 'Junior', type: 'Non-Stage' },
+            { id: 'p7', name: 'ചിത്രരചന', cat: 'Junior', type: 'Non-Stage' },
+            { id: 'p8', name: 'എഴുത്ത് മത്സരം', cat: 'Junior', type: 'Non-Stage' },
+            { id: 'p9', name: 'ഗ്രന്ഥവായന', cat: 'Junior', type: 'Non-Stage' },
+            // Senior Stage
+            { id: 'p10', name: 'മദ്ഹ് സോങ്', cat: 'Senior', type: 'Stage' },
+            { id: 'p11', name: 'ഖിറാഅത്ത്', cat: 'Senior', type: 'Stage' },
+            { id: 'p12', name: 'പ്രസംഗം (മലയാളം)', cat: 'Senior', type: 'Stage' },
+            { id: 'p13', name: 'പ്രസംഗം (ഇംഗ്ലീഷ്)', cat: 'Senior', type: 'Stage' },
+            { id: 'p14', name: 'തത്സമയ കവിതാരചന', cat: 'Senior', type: 'Stage' },
+            // Senior Non-Stage
+            { id: 'p15', name: 'കയ്യെഴുത്ത്', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p16', name: 'പദപയറ്റ്', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p17', name: 'സ്പെല്ലിംഗ് ബി', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p18', name: 'കാലിഗ്രാഫി', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p19', name: 'നാനോ ലിറ്ററേച്ചർ', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p20', name: 'ഗ്രന്ഥവായന', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p21', name: 'അടിക്കുറിപ്പ് നിർമ്മാണം', cat: 'Senior', type: 'Non-Stage' },
+            { id: 'p22', name: 'തലക്കെട്ട് നിർമ്മാണം', cat: 'Senior', type: 'Non-Stage' },
+            // General Stage
+            { id: 'p23', name: 'ബുർദ', cat: 'General', type: 'Stage' },
+            { id: 'p24', name: 'മാലപ്പാട്ട്', cat: 'General', type: 'Stage' },
+            { id: 'p25', name: 'ഗ്രൂപ്പ് സോങ്', cat: 'General', type: 'Stage' },
+            // General Non-Stage
+            { id: 'p26', name: 'ക്വിസ്', cat: 'General', type: 'Non-Stage' },
+            { id: 'p27', name: 'മെമ്മറി ടെസ്റ്റ്', cat: 'General', type: 'Non-Stage' },
+            { id: 'p28', name: 'മാഗസിൻ നിർമ്മാണം', cat: 'General', type: 'Non-Stage' },
+            { id: 'p29', name: 'കൊളാഷ്', cat: 'General', type: 'Non-Stage' },
+            { id: 'p30', name: 'പത്രനിർമ്മാണം', cat: 'General', type: 'Non-Stage' }
+        ];
 
-        // --- CORE LOGIC & ALERTS --- //
-        function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+        // --- STATE MANAGEMENT ---
+        let defaultState = {
+            role: null,
+            tab: 'dashboard',
+            candidates: [],
+            results: []
+        };
 
-        let pendingConfirmAction = null;
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState;
+        let pendingAction = null;
 
-        function customConfirm(message, actionCallback) {
-            document.getElementById('confirmText').innerText = message;
-            document.getElementById('confirmModal').classList.remove('hidden');
-            document.getElementById('confirmModal').classList.add('flex');
-            pendingConfirmAction = actionCallback;
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         }
 
-        function closeConfirmModal() {
-            document.getElementById('confirmModal').classList.add('hidden');
-            document.getElementById('confirmModal').classList.remove('flex');
-            pendingConfirmAction = null;
-        }
-
-        function executeConfirmAction() {
-            if (pendingConfirmAction) pendingConfirmAction();
-            closeConfirmModal();
-        }
-
-        function customAlert(message, type = 'success') {
+        // --- UTILITIES ---
+        window.showAlert = (msg, type = 'success') => {
             const toast = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            const text = document.getElementById('toastMsg');
-
-            toast.classList.remove('translate-y-[-200%]');
-
-            if(type === 'error') {
-                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-red-950/90 border border-red-500/50 text-red-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
-                icon.innerText = '⚠️';
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').innerText = type === 'error' ? '⚠️' : '✨';
+            
+            if (type === 'error') {
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm bg-red-950/90 border border-red-500/50 text-red-200 translate-y-0";
             } else {
-                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3";
-                icon.innerText = '✨';
+                toast.className = "fixed top-5 right-5 z-[100] transform transition-transform duration-300 px-6 py-3 rounded-xl shadow-2xl font-semibold flex items-center space-x-3 text-sm bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 translate-y-0";
             }
-            
-            text.innerText = message;
-            
+
             setTimeout(() => {
                 toast.classList.add('translate-y-[-200%]');
+                toast.classList.remove('translate-y-0');
             }, 3000);
-        }
+        };
 
-        // --- SCORING CALCULATION (10 - 5 - 3) --- //
-        function getTeamPoints(teamId) {
-            let points = 0;
+        window.openConfirm = (msg, callback) => {
+            document.getElementById('confirmText').innerText = msg;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('flex');
+            pendingAction = callback;
+        };
+
+        window.closeConfirm = () => {
+            document.getElementById('confirmModal').classList.add('hidden');
+            document.getElementById('confirmModal').classList.remove('flex');
+            pendingAction = null;
+        };
+
+        window.executeConfirm = () => {
+            if (pendingAction) pendingAction();
+            closeConfirm();
+        };
+
+        // --- SCORING LOGIC (10 - 5 - 3) ---
+        function getScores() {
+            let scores = { teamA: 0, teamB: 0 };
             state.results.forEach(res => {
-                if (res.first) {
-                    let c = state.candidates.find(cand => cand.id.toString() === res.first.toString());
-                    if (c && c.team === teamId) points += 10;
-                }
-                if (res.second) {
-                    let c = state.candidates.find(cand => cand.id.toString() === res.second.toString());
-                    if (c && c.team === teamId) points += 5;
-                }
-                if (res.third) {
-                    let c = state.candidates.find(cand => cand.id.toString() === res.third.toString());
-                    if (c && c.team === teamId) points += 3;
-                }
+                const c1 = state.candidates.find(c => c.id === res.first);
+                const c2 = state.candidates.find(c => c.id === res.second);
+                const c3 = state.candidates.find(c => c.id === res.third);
+
+                if (c1 && scores[c1.team] !== undefined) scores[c1.team] += 10;
+                if (c2 && scores[c2.team] !== undefined) scores[c2.team] += 5;
+                if (c3 && scores[c3.team] !== undefined) scores[c3.team] += 3;
             });
-            return points;
+            return scores;
         }
 
-        // --- RENDER SYSTEM --- //
-        function switchTab(tab) {
-            state.currentTab = tab;
-            saveState();
-            render();
-        }
-
-        function render() {
-            const app = document.getElementById('app');
-            if (!state.loggedInTeam) {
-                app.innerHTML = renderLoginScreen();
-            } else {
-                app.innerHTML = renderAppLayout();
-            }
-        }
-
-        function renderLoginScreen() {
-            return `
-                <div class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950">
-                    <div class="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 relative overflow-hidden">
-                        <div class="absolute top-[-50px] right-[-50px] w-32 h-32 bg-pink-600/20 rounded-full blur-3xl"></div>
-                        <div class="text-center mb-8 relative z-10">
-                            <h1 class="text-3xl font-extrabold text-white tracking-tight">Aura Fest Portal</h1>
-                            <p class="text-slate-400 text-sm mt-2">Sign in to manage the cultural fest.</p>
-                        </div>
-                        <form onsubmit="handleLogin(event)" class="space-y-5 relative z-10">
-                            <div>
-                                <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Account Role</label>
-                                <select id="loginTeam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500">
-                                    <option value="teamA">Al-Shams (Team Alpha) - Pass: shams26</option>
-                                    <option value="teamB">Al-Qamar (Team Beta) - Pass: qamar26</option>
-                                    <option value="admin">Main Admin - Pass: admin26</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Password</label>
-                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500">
-                            </div>
-                            <button type="submit" class="w-full py-3.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl shadow-lg transition">Login</button>
-                        </form>
-                    </div>
-                </div>
-            `;
-        }
-
-        function handleLogin(e) {
+        // --- CORE FUNCTIONS ---
+        window.handleLogin = (e) => {
             e.preventDefault();
-            const team = document.getElementById('loginTeam').value;
+            const role = document.getElementById('loginRole').value;
             const pass = document.getElementById('loginPass').value;
-            if (team === 'admin' && pass === 'admin26' || state.teams[team] && pass === state.teams[team].pass) {
-                state.loggedInTeam = team;
+            
+            if (TEAMS[role] && TEAMS[role].pass === pass) {
+                state.role = role;
+                state.tab = 'dashboard';
                 saveState();
-                customAlert("Login successful!");
+                showAlert("Logged in successfully!");
                 render();
             } else {
-                customAlert("Invalid password!", "error");
+                showAlert("Invalid Password!", "error");
             }
-        }
+        };
 
-        function renderAppLayout() {
-            let tabs = [
-                { id: 'dashboard', name: '📊 Dashboard' },
-                { id: 'candidates', name: '👥 Candidates' },
-                { id: 'programmes', name: '📋 Programmes' },
-                { id: 'results', name: '🏆 Results' }
-            ];
-
-            let content = '';
-            if(state.currentTab === 'dashboard') content = renderDashboard();
-            if(state.currentTab === 'candidates') content = renderCandidates();
-            if(state.currentTab === 'programmes') content = renderProgrammes();
-            if(state.currentTab === 'results') content = renderResults();
-
-            return `
-                <!-- Header -->
-                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center z-10 shrink-0">
-                    <div>
-                        <h1 class="font-bold text-white text-lg">Aura Fest '26</h1>
-                        <p class="text-xs text-pink-400">User: ${state.loggedInTeam === 'admin' ? 'Administrator' : state.teams[state.loggedInTeam].name}</p>
-                    </div>
-                    <button onclick="state.loggedInTeam=null; saveState(); render();" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm font-semibold">Logout</button>
-                </header>
-                <!-- Nav -->
-                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4 shrink-0">
-                    ${tabs.map(t => `
-                        <button onclick="switchTab('${t.id}')" class="px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${state.currentTab === t.id ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-400 hover:text-slate-200'}">
-                            ${t.name}
-                        </button>
-                    `).join('')}
-                </nav>
-                <!-- Scrollable Main -->
-                <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950">
-                    <div class="max-w-7xl mx-auto space-y-6 pb-20">
-                        ${content}
-                    </div>
-                </main>
-            `;
-        }
-
-        // --- DASHBOARD TAB ---
-        function renderDashboard() {
-            let ptsA = getTeamPoints('teamA');
-            let ptsB = getTeamPoints('teamB');
-            
-            return `
-                <h2 class="text-2xl font-bold text-white mb-4">Live Scoreboard</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-slate-900 border ${ptsA >= ptsB ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.15)]' : 'border-slate-800'} rounded-2xl p-8 text-center relative overflow-hidden">
-                        <div class="absolute top-[-20px] right-[-20px] w-24 h-24 bg-rose-500/10 rounded-full blur-2xl"></div>
-                        <h3 class="text-rose-400 font-bold mb-2 text-lg uppercase tracking-wider">Al-Shams</h3>
-                        <span class="text-7xl font-black text-white">${ptsA}</span>
-                    </div>
-                    <div class="bg-slate-900 border ${ptsB >= ptsA ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]' : 'border-slate-800'} rounded-2xl p-8 text-center relative overflow-hidden">
-                        <div class="absolute top-[-20px] right-[-20px] w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
-                        <h3 class="text-indigo-400 font-bold mb-2 text-lg uppercase tracking-wider">Al-Qamar</h3>
-                        <span class="text-7xl font-black text-white">${ptsB}</span>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
-                        <p class="text-xs text-slate-400 uppercase">Total Candidates</p>
-                        <h3 class="text-2xl font-bold text-white mt-1">${state.candidates.length}</h3>
-                    </div>
-                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
-                        <p class="text-xs text-slate-400 uppercase">Results Published</p>
-                        <h3 class="text-2xl font-bold text-emerald-400 mt-1">${state.results.length} / ${state.programmes.length}</h3>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- CANDIDATES TAB ---
-        function renderCandidates() {
-            let teamOpts = state.loggedInTeam === 'admin' 
-                ? `<option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option>`
-                : `<option value="${state.loggedInTeam}">${state.teams[state.loggedInTeam].name}</option>`;
-
-            return `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
-                        <h3 class="text-lg font-bold text-white mb-4">Register Candidate</h3>
-                        <form onsubmit="addCandidate(event)" class="space-y-4">
-                            <input type="text" id="cName" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
-                            <input type="text" id="cReg" required placeholder="Chest No (e.g. J104)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
-                            <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
-                                <option value="Junior">Junior</option><option value="Senior">Senior</option><option value="General">General</option>
-                            </select>
-                            <select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">${teamOpts}</select>
-                            <button type="submit" class="w-full bg-pink-600 text-white font-semibold py-2 rounded-lg">Save Candidate</button>
-                        </form>
-                    </div>
-                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                        <h3 class="text-lg font-bold text-white mb-4">Directory</h3>
-                        <div class="space-y-2">
-                            ${state.candidates.map(c => `
-                                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
-                                    <div>
-                                        <span class="text-pink-400 font-mono mr-2">${c.regNo}</span><span class="font-medium text-white">${c.name}</span>
-                                        <p class="text-xs text-slate-500 mt-1">${state.teams[c.team].name} • ${c.category}</p>
-                                    </div>
-                                    ${state.loggedInTeam === 'admin' ? `<button onclick="deleteCand(${c.id})" class="text-red-400 hover:text-red-300">🗑️</button>` : ''}
-                                </div>
-                            `).join('') || '<p class="text-slate-500">No candidates yet.</p>'}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function addCandidate(e) {
-            e.preventDefault();
-            state.candidates.push({
-                id: Date.now(),
-                name: document.getElementById('cName').value,
-                regNo: document.getElementById('cReg').value,
-                category: document.getElementById('cCat').value,
-                team: document.getElementById('cTeam').value
-            });
+        window.handleLogout = () => {
+            state.role = null;
             saveState();
-            customAlert("Candidate added!");
             render();
-        }
+        };
 
-        function deleteCand(id) {
-            if(confirm("Delete candidate?")) {
+        window.switchTab = (tab) => {
+            state.tab = tab;
+            saveState();
+            render();
+        };
+
+        window.addCandidate = (e) => {
+            e.preventDefault();
+            const name = document.getElementById('cName').value;
+            const regNo = document.getElementById('cReg').value;
+            const cat = document.getElementById('cCat').value;
+            const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
+
+            state.candidates.push({ id: Date.now().toString(), name, regNo, cat, team });
+            saveState();
+            showAlert("Candidate Registered!");
+            render();
+        };
+
+        window.deleteCandidate = (id) => {
+            openConfirm("Delete this candidate?", () => {
                 state.candidates = state.candidates.filter(c => c.id !== id);
                 saveState();
+                showAlert("Candidate deleted.");
                 render();
-            }
-        }
+            });
+        };
 
-        // --- PROGRAMMES TAB ---
-        function renderProgrammes() {
-            return `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    ${['Junior', 'Senior', 'General'].map(cat => `
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                            <h3 class="font-bold text-lg mb-3 ${cat==='Junior'?'text-amber-400':cat==='Senior'?'text-indigo-400':'text-emerald-400'}">${cat} (${state.programmes.filter(p=>p.category===cat).length})</h3>
-                            <ul class="space-y-2">
-                                ${state.programmes.filter(p=>p.category===cat).map(p => `
-                                    <li class="text-sm text-white bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between">
-                                        ${p.name}
-                                        ${state.results.find(r=>r.progId===p.id) ? '<span class="text-emerald-500 text-xs">✔ Published</span>' : ''}
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        // --- RESULTS TAB ---
-        function renderResults() {
-            let adminForm = '';
-            if (state.loggedInTeam === 'admin') {
-                adminForm = `
-                    <div class="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6">
-                        <h3 class="text-lg font-bold text-emerald-400 mb-4">Publish Result</h3>
-                        <form onsubmit="publishResult(event)" class="space-y-4">
-                            <select id="resProgId" required onchange="renderResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
-                                <option value="">-- Choose Program --</option>
-                                ${state.programmes.map(p => `<option value="${p.id}">${p.name} (${p.category})</option>`).join('')}
-                            </select>
-                            
-                            <!-- Dynamic Dropdowns Container -->
-                            <div id="dynamicDropdowns" class="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 hidden">
-                                <div>
-                                    <label class="block text-xs font-bold text-yellow-500 mb-1">🥇 1st Place (10 Pts)</label>
-                                    <select id="res1" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-400 mb-1">🥈 2nd Place (5 Pts)</label>
-                                    <select id="res2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-amber-700 mb-1">🥉 3rd Place (3 Pts)</label>
-                                    <select id="res3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg shadow-lg">Publish to Scoreboard</button>
-                        </form>
-                    </div>
-                `;
-            } else {
-                adminForm = `<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-center text-slate-400">Only Admin can publish results.</div>`;
-            }
-
-            return `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    ${adminForm}
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit max-h-[600px] overflow-y-auto">
-                        <h3 class="text-lg font-bold text-white mb-4">Published Results</h3>
-                        <div class="space-y-4">
-                            ${state.results.map(res => {
-                                const prog = state.programmes.find(p => p.id === res.progId);
-                                const c1 = state.candidates.find(c => c.id.toString() === res.first.toString());
-                                const c2 = state.candidates.find(c => c.id.toString() === res.second.toString());
-                                const c3 = state.candidates.find(c => c.id.toString() === res.third.toString());
-                                return `
-                                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                                        <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500">(${prog?.category})</span></h4>
-                                        ${c1 ? `<p class="text-yellow-500 text-sm">🥇 1st: ${c1.name} <span class="text-slate-500">(${state.teams[c1.team].name.split(' ')[0]})</span></p>` : ''}
-                                        ${c2 ? `<p class="text-slate-400 text-sm mt-1">🥈 2nd: ${c2.name} <span class="text-slate-500">(${state.teams[c2.team].name.split(' ')[0]})</span></p>` : ''}
-                                        ${c3 ? `<p class="text-amber-700 text-sm mt-1">🥉 3rd: ${c3.name} <span class="text-slate-500">(${state.teams[c3.team].name.split(' ')[0]})</span></p>` : ''}
-                                    </div>
-                                `;
-                            }).join('') || '<p class="text-slate-500">No results yet.</p>'}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Generate the dropdowns when a program is selected
-        function renderResultDropdowns() {
-            const progId = document.getElementById('resProgId').value;
-            const container = document.getElementById('dynamicDropdowns');
-            const select1 = document.getElementById('res1');
-            const select2 = document.getElementById('res2');
-            const select3 = document.getElementById('res3');
-
-            if (!progId) {
-                container.classList.add('hidden');
+        // Dynamic Dropdowns for Results
+        window.populateResultDropdowns = () => {
+            const progId = document.getElementById('rProg').value;
+            const prog = PROGRAMS.find(p => p.id === progId);
+            const container = document.getElementById('rSelectors');
+            
+            if (!prog) {
+                container.innerHTML = '';
                 return;
             }
 
-            const prog = state.programmes.find(p => p.id === progId);
-            const eligibleCands = state.candidates.filter(c => c.category === prog.category || prog.category === 'General');
-            
-            let optionsHTML = `<option value="">-- Select Winner --</option>` + eligibleCands.map(c => 
-                `<option value="${c.id}">${c.regNo} - ${c.name} (${state.teams[c.team].name.split(' ')[0]})</option>`
-            ).join('');
+            // Filter eligible candidates (General programs allow Junior and Senior)
+            const eligibleCands = state.candidates.filter(c => 
+                prog.cat === 'General' ? true : c.cat === prog.cat
+            );
 
-            select1.innerHTML = optionsHTML;
-            select2.innerHTML = `<option value="">-- Optional --</option>` + optionsHTML.replace(`<option value="">-- Select Winner --</option>`, '');
-            select3.innerHTML = `<option value="">-- Optional --</option>` + optionsHTML.replace(`<option value="">-- Select Winner --</option>`, '');
+            let optionsHtml = `<option value="">-- Select Winner --</option>`;
+            eligibleCands.forEach(c => {
+                optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name} (${TEAMS[c.team].name})</option>`;
+            });
 
-            container.classList.remove('hidden');
+            container.innerHTML = `
+                <div class="mt-4 space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Pts)</label>
+                        <select id="rFirst" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Pts)</label>
+                        <select id="rSecond" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Pts)</label>
+                        <select id="rThird" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">${optionsHtml}</select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition">Publish Result</button>
+            `;
+        };
+
+        window.publishResult = (e) => {
+            e.preventDefault();
+            const progId = document.getElementById('rProg').value;
+            const first = document.getElementById('rFirst').value;
+            const second = document.getElementById('rSecond').value;
+            const third = document.getElementById('rThird').value;
+
+            if (!first) return showAlert("1st place is mandatory!", "error");
+
+            const newResult = { progId, first, second, third };
+            const existingIdx = state.results.findIndex(r => r.progId === progId);
+
+            if (existingIdx >= 0) {
+                openConfirm("Results for this program already exist. Overwrite them?", () => {
+                    state.results[existingIdx] = newResult;
+                    saveState();
+                    showAlert("Results Overwritten!");
+                    render();
+                });
+            } else {
+                state.results.push(newResult);
+                saveState();
+                showAlert("Results Published!");
+                render();
+            }
+        };
+
+
+        // --- RENDERING VIEWS ---
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.role) {
+                app.innerHTML = renderLogin();
+            } else {
+                app.innerHTML = renderApp();
+            }
         }
 
-        // Integrate exactly with your requested snippet flow
-        function publishResult(e) {
-            e.preventDefault();
-            const progId = document.getElementById('resProgId').value;
-            const first = document.getElementById('res1').value;
-            const second = document.getElementById('res2').value;
-            const third = document.getElementById('res3').value;
+        function renderLogin() {
+            return `
+                <div class="flex-1 flex items-center justify-center p-4">
+                    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+                        <div class="text-center mb-8">
+                            <h1 class="text-3xl font-extrabold text-white mb-2">Aura Fest</h1>
+                            <p class="text-sm text-slate-400">Secure Organizer Login</p>
+                        </div>
+                        <form onsubmit="handleLogin(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Account Role</label>
+                                <select id="loginRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                                    <option value="admin">Admin</option>
+                                    <option value="teamA">Team Al-Shams</option>
+                                    <option value="teamB">Team Al-Qamar</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Password</label>
+                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Enter password">
+                            </div>
+                            <button type="submit" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl transition mt-2">Login</button>
+                        </form>
+                    </div>
+                </div>`;
+        }
 
-            if (!first) return customAlert("First place is mandatory!", "error");
+        function renderApp() {
+            const scores = getScores();
+            
+            let navHtml = `
+                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4">
+                    <button onclick="switchTab('dashboard')" class="px-6 py-4 font-semibold text-sm ${state.tab==='dashboard'?'tab-active':'tab-inactive'}">Dashboard</button>
+                    <button onclick="switchTab('candidates')" class="px-6 py-4 font-semibold text-sm ${state.tab==='candidates'?'tab-active':'tab-inactive'}">Candidates</button>
+                    <button onclick="switchTab('programs')" class="px-6 py-4 font-semibold text-sm ${state.tab==='programs'?'tab-active':'tab-inactive'}">Programs</button>
+                    <button onclick="switchTab('results')" class="px-6 py-4 font-semibold text-sm ${state.tab==='results'?'tab-active':'tab-inactive'}">Results</button>
+                </nav>`;
 
-            const resultData = { id: Date.now(), progId, first, second, third };
-            
-            // Check if result already exists and overwrite it
-            const existingIdx = state.results.findIndex(r => r.progId === progId);
-            
-            if (existingIdx >= 0) {
-                 customConfirm("A result for this program already exists. Overwrite?", () => {
-                     state.results[existingIdx] = resultData;
-                     saveState();
-                     customAlert("Result Updated & Scores Recalculated!");
-                     render();
-                 });
-                 return; // Halt execution, wait for confirm
-            } else {
-                state.results.push(resultData);
+            let mainContent = '';
+
+            if (state.tab === 'dashboard') {
+                mainContent = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-900 border border-rose-500/30 rounded-2xl p-8 text-center">
+                            <h3 class="text-xl font-bold text-rose-400 mb-2">Al-Shams</h3>
+                            <span class="text-7xl font-black text-white">${scores.teamA}</span>
+                            <p class="text-slate-400 mt-2 text-xs uppercase font-bold tracking-widest">Total Points</p>
+                        </div>
+                        <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-8 text-center">
+                            <h3 class="text-xl font-bold text-indigo-400 mb-2">Al-Qamar</h3>
+                            <span class="text-7xl font-black text-white">${scores.teamB}</span>
+                            <p class="text-slate-400 mt-2 text-xs uppercase font-bold tracking-widest">Total Points</p>
+                        </div>
+                    </div>`;
             }
 
-            saveState();
-            customAlert("Result Published & Scores Updated!");
-            render();
+            if (state.tab === 'candidates') {
+                mainContent = `
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit">
+                            <h3 class="font-bold text-white mb-4">Register Candidate</h3>
+                            <form onsubmit="addCandidate(event)" class="space-y-4">
+                                <input type="text" id="cName" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                <input type="text" id="cReg" required placeholder="Chest / Reg No" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <option value="Junior">Junior</option><option value="Senior">Senior</option>
+                                </select>
+                                ${state.role === 'admin' ? 
+                                    `<select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                        <option value="teamA">Al-Shams</option><option value="teamB">Al-Qamar</option>
+                                    </select>` : ''}
+                                <button type="submit" class="w-full bg-pink-600 text-white font-bold py-2 rounded-lg">Save Candidate</button>
+                            </form>
+                        </div>
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                            <h3 class="font-bold text-white mb-4">Database (${state.candidates.length})</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-sm whitespace-nowrap">
+                                    <thead class="bg-slate-950 text-slate-400 text-xs uppercase">
+                                        <tr><th class="p-3">Reg No</th><th class="p-3">Name</th><th class="p-3">Cat</th><th class="p-3">Team</th><th class="p-3">Action</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        ${state.candidates.map(c => `
+                                            <tr>
+                                                <td class="p-3 text-pink-400 font-mono">${c.regNo}</td>
+                                                <td class="p-3 text-white">${c.name}</td>
+                                                <td class="p-3 text-slate-300">${c.cat}</td>
+                                                <td class="p-3 ${TEAMS[c.team].color} font-bold">${TEAMS[c.team].name}</td>
+                                                <td class="p-3">
+                                                    ${state.role === 'admin' ? `<button onclick="deleteCandidate('${c.id}')" class="text-red-400 text-xs border border-red-500/30 px-2 py-1 rounded">Delete</button>` : '-'}
+                                                </td>
+                                            </tr>`).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            if (state.tab === 'programs') {
+                const cats = ['Junior', 'Senior', 'General'];
+                mainContent = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
+                cats.forEach(cat => {
+                    mainContent += `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                        <h3 class="font-bold text-lg mb-3 text-white border-b border-slate-800 pb-2">${cat} Programs</h3>
+                        <ul class="space-y-2">`;
+                    PROGRAMS.filter(p => p.cat === cat).forEach(p => {
+                        const hasResult = state.results.some(r => r.progId === p.id);
+                        mainContent += `<li class="text-sm bg-slate-950 p-2 rounded-lg border border-slate-800 flex justify-between text-slate-300">
+                            <span>${p.name} <span class="text-[10px] text-slate-500 uppercase ml-1">(${p.type})</span></span>
+                            ${hasResult ? '✅' : ''}
+                        </li>`;
+                    });
+                    mainContent += `</ul></div>`;
+                });
+                mainContent += `</div>`;
+            }
+
+            if (state.tab === 'results') {
+                mainContent = `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        ${state.role === 'admin' ? `
+                            <div class="bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl h-fit">
+                                <h3 class="font-bold text-emerald-400 mb-4 text-lg">Publish Result</h3>
+                                <form onsubmit="publishResult(event)">
+                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                        <option value="">-- Select Program --</option>
+                                        ${PROGRAMS.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
+                                    </select>
+                                    <div id="rSelectors"></div>
+                                </form>
+                            </div>
+                        ` : `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-center text-slate-400">
+                                Only Admin can publish results.
+                            </div>
+                        `}
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit max-h-[600px] overflow-y-auto">
+                            <h3 class="font-bold text-white mb-4 text-lg">Published Results</h3>
+                            <div class="space-y-3">
+                                ${state.results.length === 0 ? '<p class="text-slate-500">No results yet.</p>' : ''}
+                                ${state.results.map(res => {
+                                    const prog = PROGRAMS.find(p => p.id === res.progId);
+                                    const c1 = state.candidates.find(c => c.id === res.first);
+                                    const c2 = state.candidates.find(c => c.id === res.second);
+                                    const c3 = state.candidates.find(c => c.id === res.third);
+                                    return `
+                                        <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                                            <h4 class="font-bold text-white mb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal">(${prog?.cat})</span></h4>
+                                            <div class="text-sm space-y-1">
+                                                ${c1 ? `<p class="text-yellow-500">1st (10pts): ${c1.name} <span class="text-xs text-slate-500">(${TEAMS[c1.team].name})</span></p>` : ''}
+                                                ${c2 ? `<p class="text-slate-400">2nd (5pts): ${c2.name} <span class="text-xs text-slate-500">(${TEAMS[c2.team].name})</span></p>` : ''}
+                                                ${c3 ? `<p class="text-amber-700">3rd (3pts): ${c3.name} <span class="text-xs text-slate-500">(${TEAMS[c3.team].name})</span></p>` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            return `
+                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Aura Fest '26</h1>
+                        <p class="text-xs text-slate-400">Logged in: <span class="font-bold text-white">${TEAMS[state.role].name}</span></p>
+                    </div>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition">Logout</button>
+                </header>
+                ${navHtml}
+                <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+                    ${mainContent}
+                </main>`;
         }
 
-        // Initialize App
+        // --- STARTUP ---
         window.onload = render;
     </script>
 </body>
 </html>
-
