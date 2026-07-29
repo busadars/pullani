@@ -25,7 +25,7 @@
         <span id="toastMsg"></span>
     </div>
 
-    <!-- Confirm Modal (Forced Native Hide for Android TV) -->
+    <!-- Confirm Modal -->
     <div id="confirmModal" style="display: none;" class="fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-md">
         <div class="glass-card p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
             <div class="text-4xl mb-4">⚠️</div>
@@ -56,13 +56,25 @@
             <h3 class="text-lg font-bold text-white mb-1" id="assignTitle">Assign Events</h3>
             <p class="text-xs text-pink-400 mb-4 font-bold tracking-widest uppercase" id="assignSubtitle"></p>
             <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex-1 overflow-y-auto mb-4 custom-scrollbar">
-                <div id="assignCheckboxes" class="space-y-3">
-                    <!-- Checkboxes injected here -->
-                </div>
+                <div id="assignCheckboxes" class="space-y-3"></div>
             </div>
             <div class="flex gap-3 justify-end pt-2">
                 <button onclick="closeAssign()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-600">Cancel</button>
                 <button id="saveAssignBtn" onclick="saveAssign()" class="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-pink-900/50">Save Assignments</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Enrolled Modal -->
+    <div id="enrolledModal" style="display: none;" class="fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card p-6 rounded-2xl max-w-md w-full shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-1">
+                <h3 class="text-lg font-bold text-white" id="enrolledTitle">Registered Participants</h3>
+                <button onclick="closeEnrolled()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition">✕</button>
+            </div>
+            <p class="text-xs text-indigo-400 mb-4 font-bold tracking-widest uppercase" id="enrolledSubtitle"></p>
+            <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex-1 overflow-y-auto custom-scrollbar">
+                <div id="enrolledList" class="space-y-2"></div>
             </div>
         </div>
     </div>
@@ -169,7 +181,7 @@
                 onSnapshot(candRef, (snap) => {
                     state.candidates = snap.docs.map(d => ({ 
                         id: d.id, 
-                        assignedPrograms: [], // Default if missing
+                        assignedPrograms: [], 
                         ...d.data() 
                     }));
                     state.dbReady = true;
@@ -238,10 +250,9 @@
             if (!candidate) return;
             currentAssignCandidateId = candId;
 
-            document.getElementById('assignTitle').innerText = `Events: ${candidate.name}`;
-            document.getElementById('assignSubtitle').innerText = `${candidate.cat} Category • ${state.teams[candidate.team]?.name}`;
+            document.getElementById('assignTitle').innerText = `Assign Events`;
+            document.getElementById('assignSubtitle').innerText = `${candidate.name} • ${candidate.cat}`;
             
-            // Get eligible programs (Their category + General)
             const eligibleProgs = state.programs.filter(p => p.cat === candidate.cat || p.cat === 'General');
             const assigned = candidate.assignedPrograms || [];
 
@@ -283,6 +294,49 @@
             } finally {
                 btn.innerText = 'Save Assignments';
             }
+        };
+
+        // --- VIEW ENROLLED MODAL LOGIC ---
+        window.openEnrolled = (progId) => {
+            const prog = state.programs.find(p => p.id === progId);
+            if(!prog) return;
+
+            document.getElementById('enrolledTitle').innerText = prog.name;
+            
+            // Filter logic: Get candidates assigned to this program
+            let enrolled = state.candidates.filter(c => c.assignedPrograms && c.assignedPrograms.includes(progId));
+            
+            // If it's a team login, ONLY show their own team's enrolled candidates
+            if (state.role !== 'admin') {
+                enrolled = enrolled.filter(c => c.team === state.role);
+                document.getElementById('enrolledSubtitle').innerText = `Your Team's Candidates Only`;
+            } else {
+                document.getElementById('enrolledSubtitle').innerText = `All Registered Candidates`;
+            }
+
+            let html = '';
+            if(enrolled.length === 0) {
+                html = `<p class="text-center text-slate-500 text-sm py-4">No candidates registered yet.</p>`;
+            } else {
+                enrolled.forEach(c => {
+                    html += `
+                        <div class="bg-slate-900 border border-slate-700 p-3 rounded-lg flex justify-between items-center">
+                            <div>
+                                <p class="text-white font-bold text-sm">${c.name} <span class="text-xs text-slate-500 font-normal">(${c.regNo})</span></p>
+                                ${prog.cat === 'General' ? `<p class="text-[10px] text-slate-400 uppercase tracking-widest">${c.cat}</p>` : ''}
+                            </div>
+                            <span class="text-[10px] font-black uppercase px-2 py-1 rounded bg-slate-950 border border-slate-800 ${state.teams[c.team]?.color}">${state.teams[c.team]?.name}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('enrolledList').innerHTML = html;
+            document.getElementById('enrolledModal').style.display = 'flex';
+        };
+
+        window.closeEnrolled = () => {
+            document.getElementById('enrolledModal').style.display = 'none';
         };
 
         // --- CORE ACTIONS ---
@@ -370,7 +424,6 @@
             const name = document.getElementById('cName').value;
             const regNo = document.getElementById('cReg').value;
             const cat = document.getElementById('cCat').value;
-            // If admin, take from dropdown. If team, take their own role.
             const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
 
             const btn = document.getElementById('addCandBtn');
@@ -402,10 +455,7 @@
             
             if (!prog) return container.innerHTML = '';
 
-            // Filter eligible candidates
             const eligibleCands = state.candidates.filter(c => prog.cat === 'General' ? true : c.cat === prog.cat);
-            
-            // Highlight candidates specifically assigned to this event
             const assignedCands = eligibleCands.filter(c => c.assignedPrograms && c.assignedPrograms.includes(progId));
             const otherCands = eligibleCands.filter(c => !c.assignedPrograms || !c.assignedPrograms.includes(progId));
 
@@ -464,7 +514,6 @@
             existingRes ? window.openConfirm("Overwrite existing results?", pushToCloud) : pushToCloud();
         };
 
-        // --- CALCULATION LOGIC ---
         function getTeamScores() {
             let scores = { teamA: 0, teamB: 0 };
             state.results.forEach(res => {
@@ -495,7 +544,7 @@
                 .map(id => ({ ...state.candidates.find(c => c.id === id), score: indScores[id] }))
                 .filter(c => c.score > 0)
                 .sort((a, b) => b.score - a.score)
-                .slice(0, 3); // Get Top 3
+                .slice(0, 3);
         }
 
         // --- RENDERING ---
@@ -554,10 +603,54 @@
                 const topJuniors = getTopScorers('Junior');
                 const topSeniors = getTopScorers('Senior');
 
+                // Generate Latest Result HTML
+                const sortedResults = [...state.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                let latestResultHtml = '';
+                if (sortedResults.length > 0) {
+                    const latest = sortedResults[0];
+                    const prog = state.programs.find(p => p.id === latest.progId);
+                    const c1 = state.candidates.find(c => c.id === latest.first);
+                    const c2 = state.candidates.find(c => c.id === latest.second);
+                    const c3 = state.candidates.find(c => c.id === latest.third);
+
+                    latestResultHtml = `
+                        <div class="mt-12 p-1 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 relative max-w-3xl mx-auto shadow-lg shadow-emerald-500/10">
+                            <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-widest z-10 shadow-lg shadow-emerald-500/30 animate-pulse">🔥 Newest Result 🔥</div>
+                            <div class="bg-slate-900/90 rounded-xl p-5 backdrop-blur-md">
+                                <h4 class="text-center font-black text-white mb-5 text-xl tracking-tight">${prog?.name} <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 align-middle ml-2">${prog?.cat}</span></h4>
+                                <div class="flex flex-col md:flex-row justify-center items-end gap-3 px-2">
+                                    
+                                    <!-- 2nd Place (Left) -->
+                                    <div class="flex-1 bg-slate-950 border border-slate-700 p-4 rounded-xl text-center w-full transform md:-translate-y-2">
+                                        <span class="text-3xl block mb-1 drop-shadow-md">🥈</span>
+                                        <p class="font-bold text-slate-200 text-sm leading-tight">${c2 ? c2.name : '-'}</p>
+                                        <p class="text-[9px] uppercase font-black tracking-widest text-slate-500 mt-2">${c2 ? state.teams[c2.team]?.name : '-'}</p>
+                                    </div>
+
+                                    <!-- 1st Place (Center - Elevated) -->
+                                    <div class="flex-[1.2] bg-yellow-500/10 border border-yellow-500/40 p-5 rounded-xl text-center w-full shadow-[0_0_20px_rgba(234,179,8,0.15)] relative z-10 transform md:-translate-y-6">
+                                        <span class="text-4xl block mb-2 drop-shadow-lg">🥇</span>
+                                        <p class="font-black text-yellow-400 text-base leading-tight">${c1 ? c1.name : '-'}</p>
+                                        <p class="text-[10px] uppercase font-black tracking-widest text-yellow-600 mt-2">${c1 ? state.teams[c1.team]?.name : '-'}</p>
+                                    </div>
+
+                                    <!-- 3rd Place (Right) -->
+                                    <div class="flex-1 bg-slate-950 border border-amber-900/30 p-4 rounded-xl text-center w-full transform md:-translate-y-2">
+                                        <span class="text-3xl block mb-1 drop-shadow-md">🥉</span>
+                                        <p class="font-bold text-amber-600 text-sm leading-tight">${c3 ? c3.name : '-'}</p>
+                                        <p class="text-[9px] uppercase font-black tracking-widest text-amber-700/60 mt-2">${c3 ? state.teams[c3.team]?.name : '-'}</p>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 mainContent = `
-                    <div class="relative glass-card p-8 rounded-[2rem] shadow-2xl overflow-hidden mb-6">
+                    <div class="relative glass-card p-8 rounded-[2rem] shadow-2xl overflow-hidden mb-6 border-b border-slate-700/50">
                         <div class="text-center mb-10">
-                            <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-violet-500 uppercase tracking-widest animate-pulse">Live Battle Board</h2>
+                            <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-violet-500 uppercase tracking-widest">Live Battle Board</h2>
                         </div>
                         <div class="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
                             <!-- Team A -->
@@ -587,6 +680,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <!-- Tension Bar -->
                         <div class="mt-14 w-full max-w-4xl mx-auto relative z-10">
                             <div class="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-2">
@@ -600,12 +694,13 @@
                                 <div class="h-full bg-indigo-500 transition-all duration-1000 ease-out" style="width: ${teamBPct}%"></div>
                             </div>
                         </div>
+
+                        ${latestResultHtml}
                     </div>
 
                     <!-- Individual Champions Section -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Junior Leaderboard -->
-                        <div class="glass-card p-6 rounded-2xl">
+                        <div class="glass-card p-6 rounded-2xl border-t border-slate-700/50">
                             <h3 class="text-xl font-bold text-white flex items-center gap-2 mb-4"><span class="text-2xl">🌟</span> Junior Kalaprathibha (Top 3)</h3>
                             <div class="space-y-3">
                                 ${topJuniors.length === 0 ? '<p class="text-slate-500 text-sm">No points awarded yet.</p>' : ''}
@@ -623,8 +718,7 @@
                                 `).join('')}
                             </div>
                         </div>
-                        <!-- Senior Leaderboard -->
-                        <div class="glass-card p-6 rounded-2xl">
+                        <div class="glass-card p-6 rounded-2xl border-t border-slate-700/50">
                             <h3 class="text-xl font-bold text-white flex items-center gap-2 mb-4"><span class="text-2xl">🔥</span> Senior Kalaprathibha (Top 3)</h3>
                             <div class="space-y-3">
                                 ${topSeniors.length === 0 ? '<p class="text-slate-500 text-sm">No points awarded yet.</p>' : ''}
@@ -648,7 +742,7 @@
             if (state.tab === 'candidates') {
                 mainContent = `
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 glass-card p-6 rounded-2xl h-fit">
+                        <div class="lg:col-span-1 glass-card p-6 rounded-2xl h-fit border-t border-slate-700/50">
                             <h3 class="font-bold text-white mb-4 text-lg">Add New Candidate</h3>
                             <form onsubmit="addCandidate(event)" class="space-y-4">
                                 <div><input type="text" id="cName" required placeholder="Candidate Full Name" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500 transition"></div>
@@ -671,7 +765,7 @@
                             </form>
                         </div>
                         
-                        <div class="lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col h-[650px]">
+                        <div class="lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col h-[650px] border-t border-slate-700/50">
                             <h3 class="font-bold text-white mb-4 text-lg">Candidate Directory & Event Assignment</h3>
                             <div class="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
                                 <table class="w-full text-left text-sm whitespace-nowrap">
@@ -693,7 +787,7 @@
                                                 <td class="p-4 ${state.teams[c.team]?.color} font-bold">${state.teams[c.team]?.name}</td>
                                                 <td class="p-4">
                                                     ${canManage 
-                                                        ? `<button onclick="openAssign('${c.id}')" class="bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/50 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"><span>📅</span> ${eventCount > 0 ? `${eventCount} Assigned` : 'Assign'}</button>`
+                                                        ? `<button onclick="openAssign('${c.id}')" class="bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/50 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"><span>📅</span> ${eventCount > 0 ? `${eventCount} Assigned` : 'Assign'}</button>`
                                                         : `<span class="text-slate-500 text-xs bg-slate-900 px-2 py-1 rounded">${eventCount} Events</span>`
                                                     }
                                                 </td>
@@ -701,7 +795,7 @@
                                                     ${isAdmin ? `
                                                         <button onclick="editParticipant('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 px-2 py-1.5 rounded-lg text-xs transition">Edit</button>
                                                         <button onclick="deleteCandidate('${c.id}')" class="text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 px-2 py-1.5 rounded-lg text-xs transition">Delete</button>
-                                                    ` : '<span class="text-slate-600 text-[10px] uppercase">No Access</span>'}
+                                                    ` : '<span class="text-slate-600 text-[10px] uppercase font-bold tracking-widest">Locked</span>'}
                                                 </td>
                                             </tr>`
                                         }).join('')}
@@ -715,32 +809,37 @@
             if (state.tab === 'programs') {
                 const cats = ['Junior', 'Senior', 'General'];
                 let addForm = isAdmin ? `
-                    <div class="glass-card p-6 rounded-2xl mb-6 border border-pink-500/30">
+                    <div class="glass-card p-6 rounded-2xl mb-6 border border-pink-500/30 border-t border-slate-700/50">
                         <h3 class="font-bold text-pink-400 mb-4 flex items-center gap-2"><span>➕</span> Create Custom Program</h3>
                         <form onsubmit="addNewProgram(event)" class="flex flex-wrap gap-4 items-end">
-                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:border-pink-500"></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Category</label><select id="newProgCat" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Junior</option><option>Senior</option><option>General</option></select></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Type</label><select id="newProgType" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Stage</option><option>Non-Stage</option></select></div>
-                            <button type="submit" id="addProgBtn" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-2.5 rounded-lg transition">+ Add</button>
+                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:border-pink-500"></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Category</label><select id="newProgCat" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Junior</option><option>Senior</option><option>General</option></select></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Type</label><select id="newProgType" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Stage</option><option>Non-Stage</option></select></div>
+                            <button type="submit" id="addProgBtn" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-2.5 rounded-lg transition shadow-lg shadow-pink-900/50">+ Add Program</button>
                         </form>
                     </div>
                 ` : '';
 
                 mainContent = addForm + `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
                 cats.forEach(cat => {
-                    mainContent += `<div class="glass-card p-5 rounded-2xl h-fit">
-                        <h3 class="font-bold text-xl mb-4 text-white border-b border-slate-700 pb-2">${cat} Schedule</h3>
+                    mainContent += `<div class="glass-card p-5 rounded-2xl h-fit border-t border-slate-700/50">
+                        <h3 class="font-bold text-xl mb-4 text-white border-b border-slate-700 pb-2 flex justify-between items-center">${cat} Schedule</h3>
                         <ul class="space-y-3">`;
                     state.programs.filter(p => p.cat === cat).forEach(p => {
-                        // Count assigned candidates
-                        const assignedCount = state.candidates.filter(c => c.assignedPrograms && c.assignedPrograms.includes(p.id)).length;
                         
-                        mainContent += `<li class="text-sm bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50 flex justify-between items-center transition hover:border-slate-500">
+                        // Count assigned candidates based on who is looking
+                        let enrolledProgs = state.candidates.filter(c => c.assignedPrograms && c.assignedPrograms.includes(p.id));
+                        if (!isAdmin) enrolledProgs = enrolledProgs.filter(c => c.team === state.role);
+                        const assignedCount = enrolledProgs.length;
+                        
+                        mainContent += `<li class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50 flex justify-between items-center transition hover:border-slate-500">
                             <div>
-                                <span class="block text-white font-semibold">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
-                                <div class="flex gap-2 items-center mt-1">
+                                <span class="block text-white font-semibold text-sm mb-1">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
+                                <div class="flex gap-2 items-center">
                                     <span class="text-[9px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded uppercase tracking-wider border border-slate-800">${p.type}</span>
-                                    <span class="text-[9px] text-indigo-300 bg-indigo-950/50 px-2 py-0.5 rounded uppercase font-bold border border-indigo-900/50">👤 ${assignedCount} Enrolled</span>
+                                    <button onclick="openEnrolled('${p.id}')" class="text-[9px] text-indigo-300 bg-indigo-950/50 hover:bg-indigo-600 hover:text-white px-2 py-0.5 rounded uppercase font-bold border border-indigo-900/50 transition cursor-pointer flex items-center gap-1 shadow-sm">
+                                        👤 ${assignedCount} Enrolled (View)
+                                    </button>
                                 </div>
                             </div>
                         </li>`;
@@ -751,19 +850,16 @@
             }
 
             if (state.tab === 'results') {
-                // Sort results by newest first
                 const sortedResults = [...state.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
                 mainContent = `
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        
-                        <!-- Publish Panel (Admin Only) -->
                         <div class="lg:col-span-5 flex flex-col gap-6">
                             ${isAdmin ? `
                                 <div class="glass-card p-6 rounded-2xl border border-emerald-500/30">
                                     <h3 class="font-bold text-emerald-400 mb-4 text-lg flex items-center gap-2"><span class="text-2xl">🏆</span> Publish Result</h3>
                                     <form onsubmit="publishResult(event)">
-                                        <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-emerald-500 font-semibold">
+                                        <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-emerald-500 font-semibold mb-4 shadow-inner">
                                             <option value="">-- Choose Program --</option>
                                             ${state.programs.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
                                         </select>
@@ -779,11 +875,10 @@
                             `}
                         </div>
 
-                        <!-- Live Feed Panel -->
-                        <div class="lg:col-span-7 glass-card p-6 rounded-2xl flex flex-col h-[700px]">
+                        <div class="lg:col-span-7 glass-card p-6 rounded-2xl flex flex-col h-[700px] border-t border-slate-700/50">
                             <div class="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
                                 <h3 class="font-bold text-white text-xl">Live Result Feed</h3>
-                                <span class="bg-slate-900 text-slate-400 text-xs px-3 py-1 rounded-full font-bold border border-slate-700">${sortedResults.length} Published</span>
+                                <span class="bg-slate-900 text-slate-400 text-xs px-3 py-1 rounded-full font-bold border border-slate-700 shadow-inner">${sortedResults.length} Published</span>
                             </div>
                             
                             <div class="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
@@ -795,13 +890,12 @@
                                     const c2 = state.candidates.find(c => c.id === res.second);
                                     const c3 = state.candidates.find(c => c.id === res.third);
                                     
-                                    // Highlight the newest result
                                     const isNew = index === 0;
                                     const cardClass = isNew ? "bg-slate-900 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)]" : "bg-slate-950/80 border-slate-800";
 
                                     return `
                                         <div class="border p-5 rounded-2xl relative overflow-hidden transition-all ${cardClass}">
-                                            ${isNew ? '<div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg tracking-widest animate-pulse">Newest</div>' : ''}
+                                            ${isNew ? '<div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg tracking-widest animate-pulse shadow-md">Newest</div>' : ''}
                                             
                                             <h4 class="font-bold text-white text-lg mb-4 flex items-center gap-2">
                                                 ${prog?.name} <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded uppercase font-bold tracking-wider">${prog?.cat}</span>
@@ -837,13 +931,13 @@
             app.innerHTML = `
                 <header class="bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-indigo-500 flex items-center justify-center font-black text-white text-xs">AF</div>
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-indigo-500 flex items-center justify-center font-black text-white text-xs shadow-lg shadow-pink-500/20">AF</div>
                         <div>
-                            <h1 class="font-bold text-white text-lg tracking-tight leading-none mb-1">Aura Fest '26 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-1 uppercase tracking-widest font-black">Live</span></h1>
+                            <h1 class="font-bold text-white text-lg tracking-tight leading-none mb-1">Aura Fest '26 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-1 uppercase tracking-widest font-black shadow-sm shadow-emerald-500/20">Live</span></h1>
                             <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">User: <span class="text-white">${state.teams[state.role]?.name || state.role}</span></p>
                         </div>
                     </div>
-                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition border border-slate-700">Sign Out</button>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition border border-slate-700 shadow-sm">Sign Out</button>
                 </header>
                 ${navHtml}
                 <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
