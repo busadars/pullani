@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aura Fest 2026 - Official Portal</title>
+    <title>Aura Fest 2026 - Premium Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800;900&display=swap" rel="stylesheet">
     <style>
@@ -14,6 +14,7 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
     </style>
 </head>
 <body>
@@ -24,27 +25,44 @@
         <span id="toastMsg"></span>
     </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="hidden fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+    <!-- Confirm Modal (Forced Native Hide for Android TV) -->
+    <div id="confirmModal" style="display: none;" class="fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
             <div class="text-4xl mb-4">⚠️</div>
             <h3 class="text-lg font-bold text-white mb-2">Are you sure?</h3>
             <p id="confirmText" class="text-sm text-slate-400 mb-6"></p>
             <div class="flex gap-3 justify-center">
-                <button onclick="closeConfirm()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition">Cancel</button>
-                <button onclick="executeConfirm()" class="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-semibold transition">Yes, Proceed</button>
+                <button onclick="closeConfirm()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-600">Cancel</button>
+                <button onclick="executeConfirm()" class="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-pink-900/50">Yes, Proceed</button>
             </div>
         </div>
     </div>
 
     <!-- Edit Prompt Modal -->
-    <div id="promptModal" class="hidden fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+    <div id="promptModal" style="display: none;" class="fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
             <h3 id="promptTitle" class="text-lg font-bold text-white mb-4"></h3>
             <input type="text" id="promptInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500 mb-6">
             <div class="flex gap-3 justify-center">
-                <button onclick="closePrompt()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition">Cancel</button>
-                <button onclick="executePrompt()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition">Save Changes</button>
+                <button onclick="closePrompt()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-600">Cancel</button>
+                <button onclick="executePrompt()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-emerald-900/50">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Events Modal -->
+    <div id="assignModal" style="display: none;" class="fixed inset-0 bg-black/80 z-[200] items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card p-6 rounded-2xl max-w-md w-full shadow-2xl flex flex-col max-h-[85vh]">
+            <h3 class="text-lg font-bold text-white mb-1" id="assignTitle">Assign Events</h3>
+            <p class="text-xs text-pink-400 mb-4 font-bold tracking-widest uppercase" id="assignSubtitle"></p>
+            <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex-1 overflow-y-auto mb-4 custom-scrollbar">
+                <div id="assignCheckboxes" class="space-y-3">
+                    <!-- Checkboxes injected here -->
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end pt-2">
+                <button onclick="closeAssign()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-600">Cancel</button>
+                <button id="saveAssignBtn" onclick="saveAssign()" class="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-pink-900/50">Save Assignments</button>
             </div>
         </div>
     </div>
@@ -73,7 +91,7 @@
         const auth = getAuth(appInit);
         const db = getFirestore(appInit);
 
-        // --- DEFAULT DATA (If Database is empty) ---
+        // --- DEFAULT DATA ---
         const DEFAULT_TEAMS = {
             admin: { id: 'admin', name: 'Main Admin', pass: 'admin26' },
             teamA: { id: 'teamA', name: 'Al-Shams', pass: 'shams26', color: 'text-rose-400' },
@@ -128,7 +146,6 @@
             try { 
                 await signInAnonymously(auth); 
             } catch (e) { 
-                console.error("Auth failed:", e);
                 window.showAlert("Database Connection Failed. Check Firebase Auth.", "error");
             }
         };
@@ -136,7 +153,6 @@
         onAuthStateChanged(auth, (user) => {
             state.user = user;
             if (user) {
-                // USING SIMPLE ROOT COLLECTIONS NOW
                 const configRef = doc(db, 'settings', 'config');
                 onSnapshot(configRef, (snap) => {
                     if (snap.exists()) {
@@ -151,8 +167,11 @@
 
                 const candRef = collection(db, 'candidates');
                 onSnapshot(candRef, (snap) => {
-                    state.candidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    console.log("Loaded Candidates from Database:", state.candidates);
+                    state.candidates = snap.docs.map(d => ({ 
+                        id: d.id, 
+                        assignedPrograms: [], // Default if missing
+                        ...d.data() 
+                    }));
                     state.dbReady = true;
                     render();
                 });
@@ -180,13 +199,11 @@
         let pendingAction = null;
         window.openConfirm = (msg, callback) => {
             document.getElementById('confirmText').innerText = msg;
-            document.getElementById('confirmModal').classList.remove('hidden');
-            document.getElementById('confirmModal').classList.add('flex');
+            document.getElementById('confirmModal').style.display = 'flex';
             pendingAction = callback;
         };
         window.closeConfirm = () => {
-            document.getElementById('confirmModal').classList.add('hidden');
-            document.getElementById('confirmModal').classList.remove('flex');
+            document.getElementById('confirmModal').style.display = 'none';
             pendingAction = null;
         };
         window.executeConfirm = () => {
@@ -198,14 +215,12 @@
         window.openPrompt = (title, defaultValue, callback) => {
             document.getElementById('promptTitle').innerText = title;
             document.getElementById('promptInput').value = defaultValue;
-            document.getElementById('promptModal').classList.remove('hidden');
-            document.getElementById('promptModal').classList.add('flex');
+            document.getElementById('promptModal').style.display = 'flex';
             promptAction = callback;
             document.getElementById('promptInput').focus();
         };
         window.closePrompt = () => {
-            document.getElementById('promptModal').classList.add('hidden');
-            document.getElementById('promptModal').classList.remove('flex');
+            document.getElementById('promptModal').style.display = 'none';
             promptAction = null;
         };
         window.executePrompt = () => {
@@ -214,6 +229,60 @@
                 promptAction(val);
             }
             closePrompt();
+        };
+
+        // --- ASSIGN EVENTS MODAL LOGIC ---
+        let currentAssignCandidateId = null;
+        window.openAssign = (candId) => {
+            const candidate = state.candidates.find(c => c.id === candId);
+            if (!candidate) return;
+            currentAssignCandidateId = candId;
+
+            document.getElementById('assignTitle').innerText = `Events: ${candidate.name}`;
+            document.getElementById('assignSubtitle').innerText = `${candidate.cat} Category • ${state.teams[candidate.team]?.name}`;
+            
+            // Get eligible programs (Their category + General)
+            const eligibleProgs = state.programs.filter(p => p.cat === candidate.cat || p.cat === 'General');
+            const assigned = candidate.assignedPrograms || [];
+
+            let html = '';
+            eligibleProgs.forEach(p => {
+                const isChecked = assigned.includes(p.id) ? 'checked' : '';
+                html += `
+                    <label class="flex items-center justify-between p-3 bg-slate-900 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800 transition">
+                        <div>
+                            <span class="text-white text-sm font-semibold block">${p.name}</span>
+                            <span class="text-[10px] text-slate-400 uppercase">${p.cat} • ${p.type}</span>
+                        </div>
+                        <input type="checkbox" value="${p.id}" class="prog-checkbox w-5 h-5 accent-pink-500 rounded focus:ring-pink-500" ${isChecked}>
+                    </label>
+                `;
+            });
+
+            document.getElementById('assignCheckboxes').innerHTML = html;
+            document.getElementById('assignModal').style.display = 'flex';
+        };
+        window.closeAssign = () => {
+            document.getElementById('assignModal').style.display = 'none';
+            currentAssignCandidateId = null;
+        };
+        window.saveAssign = async () => {
+            if (!currentAssignCandidateId) return;
+            const btn = document.getElementById('saveAssignBtn');
+            btn.innerText = 'Saving...';
+            
+            const checkboxes = document.querySelectorAll('.prog-checkbox');
+            const selectedProgs = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+            try {
+                await updateDoc(doc(db, 'candidates', currentAssignCandidateId), { assignedPrograms: selectedProgs });
+                window.showAlert("Events Assigned Successfully!");
+                closeAssign();
+            } catch (e) {
+                window.showAlert("Failed to save assignments.", "error");
+            } finally {
+                btn.innerText = 'Save Assignments';
+            }
         };
 
         // --- CORE ACTIONS ---
@@ -296,35 +365,25 @@
 
         window.addCandidate = async (e) => {
             e.preventDefault();
-            
-            if (!state.user) {
-                return window.showAlert("Database not connected! Refresh the page.", "error");
-            }
+            if (!state.user) return window.showAlert("Database not connected!", "error");
 
             const name = document.getElementById('cName').value;
             const regNo = document.getElementById('cReg').value;
             const cat = document.getElementById('cCat').value;
+            // If admin, take from dropdown. If team, take their own role.
             const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
 
             const btn = document.getElementById('addCandBtn');
-            btn.innerText = "Saving to Cloud..."; 
-            btn.disabled = true;
+            btn.innerText = "Saving to Cloud..."; btn.disabled = true;
 
             try {
-                // SAVING TO SIMPLE ROOT DIRECTORY: "candidates"
                 await addDoc(collection(db, 'candidates'), {
-                    name, regNo, cat, team, timestamp: Date.now()
+                    name, regNo, cat, team, assignedPrograms: [], timestamp: Date.now()
                 });
                 window.showAlert("Candidate Synced Successfully!");
                 e.target.reset(); 
-            } catch (err) { 
-                console.error("Firebase Save Error:", err);
-                window.showAlert("Save Failed: " + err.message, "error"); 
-            } 
-            finally { 
-                btn.innerText = "Sync Candidate"; 
-                btn.disabled = false; 
-            }
+            } catch (err) { window.showAlert("Save Failed: " + err.message, "error"); } 
+            finally { btn.innerText = "Add Candidate"; btn.disabled = false; }
         };
 
         window.deleteCandidate = (id) => {
@@ -343,21 +402,36 @@
             
             if (!prog) return container.innerHTML = '';
 
-            // LOGIC: If it's a General program, it shows ALL Juniors and Seniors. 
-            // If it's Junior/Senior, it only shows that specific category.
+            // Filter eligible candidates
             const eligibleCands = state.candidates.filter(c => prog.cat === 'General' ? true : c.cat === prog.cat);
             
+            // Highlight candidates specifically assigned to this event
+            const assignedCands = eligibleCands.filter(c => c.assignedPrograms && c.assignedPrograms.includes(progId));
+            const otherCands = eligibleCands.filter(c => !c.assignedPrograms || !c.assignedPrograms.includes(progId));
+
             let optionsHtml = `<option value="">-- Select Winner --</option>`;
-            eligibleCands.forEach(c => {
-                const teamName = state.teams[c.team]?.name || 'Unknown';
-                // Show [Junior]/[Senior] next to name only during General events so you know who they are
-                const candDisplayCat = prog.cat === 'General' ? ` [${c.cat}]` : '';
-                optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name}${candDisplayCat} (${teamName})</option>`;
-            });
+            
+            if(assignedCands.length > 0) {
+                optionsHtml += `<optgroup label="✅ Assigned to this event">`;
+                assignedCands.forEach(c => {
+                    const teamName = state.teams[c.team]?.name || 'Unknown';
+                    const candDisplayCat = prog.cat === 'General' ? ` [${c.cat}]` : '';
+                    optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name}${candDisplayCat} (${teamName})</option>`;
+                });
+                optionsHtml += `</optgroup>`;
+            }
+            if(otherCands.length > 0) {
+                optionsHtml += `<optgroup label="Other Eligible Candidates">`;
+                otherCands.forEach(c => {
+                    const teamName = state.teams[c.team]?.name || 'Unknown';
+                    const candDisplayCat = prog.cat === 'General' ? ` [${c.cat}]` : '';
+                    optionsHtml += `<option value="${c.id}">${c.regNo} - ${c.name}${candDisplayCat} (${teamName})</option>`;
+                });
+                optionsHtml += `</optgroup>`;
+            }
 
             container.innerHTML = `
-                <div class="mt-4 space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
-                    ${prog.cat === 'General' ? `<p class="text-[10px] text-pink-400 uppercase tracking-widest font-bold mb-2">Notice: General Event (Juniors & Seniors listed below)</p>` : ''}
+                <div class="mt-4 space-y-3 p-4 bg-slate-950/50 rounded-xl border border-slate-800 shadow-inner">
                     <div><label class="block text-xs font-bold text-yellow-500 mb-1">1st Place (10 Pts)</label><select id="rFirst" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
                     <div><label class="block text-xs font-bold text-slate-400 mb-1">2nd Place (5 Pts)</label><select id="rSecond" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
                     <div><label class="block text-xs font-bold text-amber-700 mb-1">3rd Place (3 Pts)</label><select id="rThird" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500">${optionsHtml}</select></div>
@@ -390,7 +464,8 @@
             existingRes ? window.openConfirm("Overwrite existing results?", pushToCloud) : pushToCloud();
         };
 
-        function getScores() {
+        // --- CALCULATION LOGIC ---
+        function getTeamScores() {
             let scores = { teamA: 0, teamB: 0 };
             state.results.forEach(res => {
                 const c1 = state.candidates.find(c => c.id === res.first);
@@ -403,6 +478,26 @@
             return scores;
         }
 
+        function getTopScorers(category) {
+            let indScores = {};
+            state.candidates.filter(c => c.cat === category).forEach(c => indScores[c.id] = 0);
+            
+            state.results.forEach(res => {
+                const c1 = state.candidates.find(c => c.id === res.first);
+                const c2 = state.candidates.find(c => c.id === res.second);
+                const c3 = state.candidates.find(c => c.id === res.third);
+                if (c1 && indScores[c1.id] !== undefined) indScores[c1.id] += 10;
+                if (c2 && indScores[c2.id] !== undefined) indScores[c2.id] += 5;
+                if (c3 && indScores[c3.id] !== undefined) indScores[c3.id] += 3;
+            });
+
+            return Object.keys(indScores)
+                .map(id => ({ ...state.candidates.find(c => c.id === id), score: indScores[id] }))
+                .filter(c => c.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3); // Get Top 3
+        }
+
         // --- RENDERING ---
         function render() {
             const app = document.getElementById('app');
@@ -410,42 +505,42 @@
             if (!state.role) {
                 app.innerHTML = `
                 <div class="flex-1 flex items-center justify-center p-4">
-                    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+                    <div class="glass-card max-w-md w-full rounded-[2rem] p-8 shadow-2xl">
                         <div class="text-center mb-8">
-                            <h1 class="text-3xl font-extrabold text-white mb-2">Aura Fest</h1>
-                            <p class="text-xs text-emerald-400 font-semibold border border-emerald-900 bg-emerald-950/30 px-3 py-1 rounded-full inline-flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Cloud DB Linked
+                            <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-indigo-500 mb-2">Aura Fest</h1>
+                            <p class="text-xs text-emerald-400 font-semibold border border-emerald-900 bg-emerald-950/50 px-3 py-1 rounded-full inline-flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Premium Cloud Portal
                             </p>
                         </div>
-                        <form onsubmit="handleLogin(event)" class="space-y-4">
+                        <form onsubmit="handleLogin(event)" class="space-y-5">
                             <div>
-                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Account Role</label>
-                                <select id="loginRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500">
-                                    <option value="admin">Admin</option>
-                                    <option value="teamA">${state.teams.teamA.name}</option>
-                                    <option value="teamB">${state.teams.teamB.name}</option>
+                                <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Account Identity</label>
+                                <select id="loginRole" class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500 transition">
+                                    <option value="admin">Main Admin</option>
+                                    <option value="teamA">Team: ${state.teams.teamA.name}</option>
+                                    <option value="teamB">Team: ${state.teams.teamB.name}</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Password</label>
-                                <input type="password" id="loginPass" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500" placeholder="Enter password">
+                                <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Access Code</label>
+                                <input type="password" id="loginPass" required class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500 transition" placeholder="Enter password">
                             </div>
-                            <button type="submit" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl transition mt-4 shadow-lg shadow-pink-900/50">Secure Login</button>
+                            <button type="submit" class="w-full bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl transition mt-4 shadow-lg shadow-indigo-900/40">Secure Login</button>
                         </form>
                     </div>
                 </div>`;
                 return;
             }
 
-            const scores = getScores();
+            const scores = getTeamScores();
             const isAdmin = state.role === 'admin';
             
             let navHtml = `
-                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-4 scrollbar-hide">
-                    <button onclick="switchTab('dashboard')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='dashboard'?'tab-active':'tab-inactive'}">Live Dashboard</button>
-                    <button onclick="switchTab('candidates')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='candidates'?'tab-active':'tab-inactive'}">Cloud Directory</button>
-                    <button onclick="switchTab('programs')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='programs'?'tab-active':'tab-inactive'}">Programs Management</button>
-                    <button onclick="switchTab('results')" class="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${state.tab==='results'?'tab-active':'tab-inactive'}">Official Results</button>
+                <nav class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-4 scrollbar-hide sticky top-[73px] z-40 shadow-md">
+                    <button onclick="switchTab('dashboard')" class="px-5 py-4 font-bold text-sm whitespace-nowrap transition-colors ${state.tab==='dashboard'?'tab-active':'tab-inactive'}">Live Dashboard</button>
+                    <button onclick="switchTab('candidates')" class="px-5 py-4 font-bold text-sm whitespace-nowrap transition-colors ${state.tab==='candidates'?'tab-active':'tab-inactive'}">Candidates & Events</button>
+                    <button onclick="switchTab('programs')" class="px-5 py-4 font-bold text-sm whitespace-nowrap transition-colors ${state.tab==='programs'?'tab-active':'tab-inactive'}">Schedule & Config</button>
+                    <button onclick="switchTab('results')" class="px-5 py-4 font-bold text-sm whitespace-nowrap transition-colors ${state.tab==='results'?'tab-active':'tab-inactive'}">Result Feed</button>
                 </nav>`;
 
             let mainContent = '';
@@ -456,116 +551,160 @@
                 const teamBPct = totalPoints === 0 ? 50 : (scores.teamB / totalPoints) * 100;
                 const leadingTeam = scores.teamA > scores.teamB ? 'teamA' : (scores.teamB > scores.teamA ? 'teamB' : 'tie');
 
+                const topJuniors = getTopScorers('Junior');
+                const topSeniors = getTopScorers('Senior');
+
                 mainContent = `
-                    <div class="relative bg-slate-950/80 p-8 rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-xl">
-                        <div class="text-center mb-12">
+                    <div class="relative glass-card p-8 rounded-[2rem] shadow-2xl overflow-hidden mb-6">
+                        <div class="text-center mb-10">
                             <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-violet-500 uppercase tracking-widest animate-pulse">Live Battle Board</h2>
-                            <p class="text-slate-500 text-xs font-bold tracking-widest mt-2 uppercase">Aura Fest '26 Showdown</p>
                         </div>
                         <div class="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                            <!-- Team A -->
                             <div class="flex-1 w-full relative group">
-                                <div class="absolute inset-0 bg-rose-500/20 blur-[60px] rounded-full group-hover:bg-rose-500/30 transition duration-500"></div>
-                                <div class="relative bg-slate-900/60 backdrop-blur-md border-2 ${leadingTeam === 'teamA' ? 'border-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.3)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
+                                <div class="absolute inset-0 bg-rose-500/10 blur-[50px] rounded-full group-hover:bg-rose-500/20 transition duration-500"></div>
+                                <div class="relative bg-slate-900/80 border-2 ${leadingTeam === 'teamA' ? 'border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.2)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
                                     ${leadingTeam === 'teamA' ? '<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-5xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">👑</div>' : ''}
                                     ${isAdmin ? `<button onclick="editTeamName('teamA', '${state.teams.teamA.name}')" class="absolute top-4 right-4 text-slate-500 hover:text-white text-sm bg-slate-800/80 px-2 py-1 rounded-lg z-20 transition">✏️ Edit</button>` : ''}
                                     <h3 class="text-2xl md:text-3xl font-black text-rose-400 mb-2 tracking-wide uppercase drop-shadow-md">${state.teams.teamA.name}</h3>
-                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">${scores.teamA}</div>
+                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter">${scores.teamA}</div>
                                 </div>
                             </div>
+                            <!-- VS -->
                             <div class="flex-shrink-0 z-20 my-4 md:my-0">
-                                <div class="w-20 h-20 bg-slate-950 border-4 border-slate-800 rounded-full flex items-center justify-center shadow-2xl relative transform hover:scale-110 transition duration-300">
-                                    <div class="absolute inset-0 bg-gradient-to-br from-rose-500/30 to-indigo-500/30 rounded-full animate-[spin_4s_linear_infinite]"></div>
-                                    <span class="text-2xl font-black italic text-slate-200 relative z-10 drop-shadow-lg">VS</span>
+                                <div class="w-16 h-16 bg-slate-950 border-4 border-slate-800 rounded-full flex items-center justify-center shadow-2xl relative transform hover:scale-110 transition duration-300">
+                                    <span class="text-xl font-black italic text-slate-400 relative z-10">VS</span>
                                 </div>
                             </div>
+                            <!-- Team B -->
                             <div class="flex-1 w-full relative group">
-                                <div class="absolute inset-0 bg-indigo-500/20 blur-[60px] rounded-full group-hover:bg-indigo-500/30 transition duration-500"></div>
-                                <div class="relative bg-slate-900/60 backdrop-blur-md border-2 ${leadingTeam === 'teamB' ? 'border-indigo-500 shadow-[0_0_40px_rgba(99,102,241,0.3)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
+                                <div class="absolute inset-0 bg-indigo-500/10 blur-[50px] rounded-full group-hover:bg-indigo-500/20 transition duration-500"></div>
+                                <div class="relative bg-slate-900/80 border-2 ${leadingTeam === 'teamB' ? 'border-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.2)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
                                     ${leadingTeam === 'teamB' ? '<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-5xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">👑</div>' : ''}
                                     ${isAdmin ? `<button onclick="editTeamName('teamB', '${state.teams.teamB.name}')" class="absolute top-4 right-4 text-slate-500 hover:text-white text-sm bg-slate-800/80 px-2 py-1 rounded-lg z-20 transition">✏️ Edit</button>` : ''}
                                     <h3 class="text-2xl md:text-3xl font-black text-indigo-400 mb-2 tracking-wide uppercase drop-shadow-md">${state.teams.teamB.name}</h3>
-                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">${scores.teamB}</div>
+                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter">${scores.teamB}</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-16 w-full max-w-4xl mx-auto relative z-10">
+                        <!-- Tension Bar -->
+                        <div class="mt-14 w-full max-w-4xl mx-auto relative z-10">
                             <div class="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-2">
-                                <span class="text-rose-400">${teamAPct.toFixed(1)}% DOMINANCE</span>
+                                <span class="text-rose-400">${teamAPct.toFixed(1)}%</span>
                                 <span class="text-slate-600">POWER BALANCE</span>
-                                <span class="text-indigo-400">${teamBPct.toFixed(1)}% DOMINANCE</span>
+                                <span class="text-indigo-400">${teamBPct.toFixed(1)}%</span>
                             </div>
-                            <div class="h-8 w-full bg-slate-900 rounded-full overflow-hidden flex border border-slate-700 shadow-inner relative">
-                                <div class="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-950 z-20 transform -translate-x-1/2"></div>
-                                <div class="h-full bg-gradient-to-r from-rose-700 via-rose-500 to-rose-400 transition-all duration-1000 ease-out relative" style="width: ${teamAPct}%"></div>
-                                <div class="h-full bg-gradient-to-l from-indigo-700 via-indigo-500 to-indigo-400 transition-all duration-1000 ease-out relative" style="width: ${teamBPct}%"></div>
+                            <div class="h-6 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-700 shadow-inner relative">
+                                <div class="absolute left-1/2 top-0 bottom-0 w-1 bg-black z-20 transform -translate-x-1/2"></div>
+                                <div class="h-full bg-rose-500 transition-all duration-1000 ease-out" style="width: ${teamAPct}%"></div>
+                                <div class="h-full bg-indigo-500 transition-all duration-1000 ease-out" style="width: ${teamBPct}%"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="mt-6 flex flex-col md:flex-row gap-4">
-                         <div class="flex-1 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex items-center justify-between backdrop-blur-sm">
-                            <div>
-                                <span class="text-slate-400 font-bold text-xs uppercase tracking-widest block mb-1">Total Candidates</span>
-                                <span class="text-3xl font-black text-white">${state.candidates.length}</span>
+
+                    <!-- Individual Champions Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Junior Leaderboard -->
+                        <div class="glass-card p-6 rounded-2xl">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-2 mb-4"><span class="text-2xl">🌟</span> Junior Kalaprathibha (Top 3)</h3>
+                            <div class="space-y-3">
+                                ${topJuniors.length === 0 ? '<p class="text-slate-500 text-sm">No points awarded yet.</p>' : ''}
+                                ${topJuniors.map((c, i) => `
+                                    <div class="bg-slate-900/80 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xl font-black ${i===0?'text-yellow-500':(i===1?'text-slate-400':'text-amber-700')}">#${i+1}</span>
+                                            <div>
+                                                <p class="text-white font-bold text-sm">${c.name}</p>
+                                                <p class="text-[10px] uppercase font-bold ${state.teams[c.team]?.color}">${state.teams[c.team]?.name}</p>
+                                            </div>
+                                        </div>
+                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700">${c.score} <span class="text-xs text-slate-500 font-normal">pts</span></span>
+                                    </div>
+                                `).join('')}
                             </div>
-                            <div class="text-4xl opacity-50">👥</div>
-                         </div>
-                         <div class="flex-1 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex items-center justify-between backdrop-blur-sm">
-                            <div>
-                                <span class="text-slate-400 font-bold text-xs uppercase tracking-widest block mb-1">Events Completed</span>
-                                <span class="text-3xl font-black text-emerald-400">${state.results.length} <span class="text-slate-600 text-lg">/ ${state.programs.length}</span></span>
+                        </div>
+                        <!-- Senior Leaderboard -->
+                        <div class="glass-card p-6 rounded-2xl">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-2 mb-4"><span class="text-2xl">🔥</span> Senior Kalaprathibha (Top 3)</h3>
+                            <div class="space-y-3">
+                                ${topSeniors.length === 0 ? '<p class="text-slate-500 text-sm">No points awarded yet.</p>' : ''}
+                                ${topSeniors.map((c, i) => `
+                                    <div class="bg-slate-900/80 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xl font-black ${i===0?'text-yellow-500':(i===1?'text-slate-400':'text-amber-700')}">#${i+1}</span>
+                                            <div>
+                                                <p class="text-white font-bold text-sm">${c.name}</p>
+                                                <p class="text-[10px] uppercase font-bold ${state.teams[c.team]?.color}">${state.teams[c.team]?.name}</p>
+                                            </div>
+                                        </div>
+                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700">${c.score} <span class="text-xs text-slate-500 font-normal">pts</span></span>
+                                    </div>
+                                `).join('')}
                             </div>
-                            <div class="text-4xl opacity-50">🏆</div>
-                         </div>
+                        </div>
                     </div>`;
             }
 
             if (state.tab === 'candidates') {
                 mainContent = `
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit">
-                            <h3 class="font-bold text-white mb-4">Add to Database</h3>
+                        <div class="lg:col-span-1 glass-card p-6 rounded-2xl h-fit">
+                            <h3 class="font-bold text-white mb-4 text-lg">Add New Candidate</h3>
                             <form onsubmit="addCandidate(event)" class="space-y-4">
-                                <div><input type="text" id="cName" required placeholder="Candidate Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
-                                <div><input type="text" id="cReg" required placeholder="Chest / Reg No" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
+                                <div><input type="text" id="cName" required placeholder="Candidate Full Name" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500 transition"></div>
+                                <div><input type="text" id="cReg" required placeholder="Chest / Reg Number" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500 transition"></div>
                                 
                                 <div>
                                     <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-                                    <select id="cCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <select id="cCat" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500">
                                         <option value="Junior">Junior</option>
                                         <option value="Senior">Senior</option>
                                     </select>
                                 </div>
 
                                 ${isAdmin ? `<div>
-                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Team</label>
-                                    <select id="cTeam" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option value="teamA">${state.teams.teamA.name}</option><option value="teamB">${state.teams.teamB.name}</option></select>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Team Assigment</label>
+                                    <select id="cTeam" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-pink-500"><option value="teamA">${state.teams.teamA.name}</option><option value="teamB">${state.teams.teamB.name}</option></select>
                                 </div>` : ''}
                                 
-                                <button type="submit" id="addCandBtn" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-xl transition shadow-lg mt-2">Sync Candidate</button>
+                                <button type="submit" id="addCandBtn" class="w-full bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition shadow-lg mt-2">Add Candidate</button>
                             </form>
                         </div>
-                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
-                            <h3 class="font-bold text-white mb-4">Cloud Directory (${state.candidates.length})</h3>
-                            <div class="overflow-x-auto overflow-y-auto flex-1">
+                        
+                        <div class="lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col h-[650px]">
+                            <h3 class="font-bold text-white mb-4 text-lg">Candidate Directory & Event Assignment</h3>
+                            <div class="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
                                 <table class="w-full text-left text-sm whitespace-nowrap">
                                     <thead class="bg-slate-950 text-slate-400 text-xs uppercase sticky top-0 z-10 shadow">
-                                        <tr><th class="p-3">Reg No</th><th class="p-3">Name</th><th class="p-3">Cat</th><th class="p-3">Team</th><th class="p-3">Action</th></tr>
+                                        <tr><th class="p-4">Candidate</th><th class="p-4">Cat</th><th class="p-4">Team</th><th class="p-4">Events</th><th class="p-4">Actions</th></tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        ${state.candidates.length === 0 ? `<tr><td colspan="5" class="text-center p-6 text-slate-500">No candidates found in database.</td></tr>` : ''}
-                                        ${state.candidates.map(c => `
-                                            <tr class="hover:bg-slate-800/50">
-                                                <td class="p-3 text-pink-400 font-mono">${c.regNo}</td>
-                                                <td class="p-3 text-white font-medium">${c.name}</td>
-                                                <td class="p-3 text-slate-300">${c.cat}</td>
-                                                <td class="p-3 ${state.teams[c.team]?.color} font-bold">${state.teams[c.team]?.name}</td>
-                                                <td class="p-3 flex gap-2">
-                                                    ${isAdmin ? `
-                                                        <button onclick="editParticipant('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-blue-400 hover:bg-blue-950/50 border border-blue-500/30 px-2 py-1 rounded">Edit</button>
-                                                        <button onclick="deleteCandidate('${c.id}')" class="text-red-400 hover:bg-red-950/50 border border-red-500/30 px-2 py-1 rounded">Delete</button>
-                                                    ` : '<span class="text-slate-600 text-xs">Restricted</span>'}
+                                        ${state.candidates.length === 0 ? `<tr><td colspan="5" class="text-center p-8 text-slate-500">No candidates added yet.</td></tr>` : ''}
+                                        ${state.candidates.map(c => {
+                                            const canManage = isAdmin || state.role === c.team;
+                                            const eventCount = c.assignedPrograms ? c.assignedPrograms.length : 0;
+                                            return `
+                                            <tr class="hover:bg-slate-800/30 transition">
+                                                <td class="p-4">
+                                                    <div class="font-bold text-white">${c.name}</div>
+                                                    <div class="text-xs font-mono text-pink-400">${c.regNo}</div>
                                                 </td>
-                                            </tr>`).join('')}
+                                                <td class="p-4 text-slate-300 font-medium">${c.cat}</td>
+                                                <td class="p-4 ${state.teams[c.team]?.color} font-bold">${state.teams[c.team]?.name}</td>
+                                                <td class="p-4">
+                                                    ${canManage 
+                                                        ? `<button onclick="openAssign('${c.id}')" class="bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/50 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"><span>📅</span> ${eventCount > 0 ? `${eventCount} Assigned` : 'Assign'}</button>`
+                                                        : `<span class="text-slate-500 text-xs bg-slate-900 px-2 py-1 rounded">${eventCount} Events</span>`
+                                                    }
+                                                </td>
+                                                <td class="p-4 flex gap-2">
+                                                    ${isAdmin ? `
+                                                        <button onclick="editParticipant('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 px-2 py-1.5 rounded-lg text-xs transition">Edit</button>
+                                                        <button onclick="deleteCandidate('${c.id}')" class="text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 px-2 py-1.5 rounded-lg text-xs transition">Delete</button>
+                                                    ` : '<span class="text-slate-600 text-[10px] uppercase">No Access</span>'}
+                                                </td>
+                                            </tr>`
+                                        }).join('')}
                                     </tbody>
                                 </table>
                             </div>
@@ -576,27 +715,33 @@
             if (state.tab === 'programs') {
                 const cats = ['Junior', 'Senior', 'General'];
                 let addForm = isAdmin ? `
-                    <div class="bg-slate-900 border border-pink-500/30 p-5 rounded-2xl mb-6 shadow-lg">
-                        <h3 class="font-bold text-pink-400 mb-3 flex items-center gap-2"><span>➕</span> Add Custom Program</h3>
+                    <div class="glass-card p-6 rounded-2xl mb-6 border border-pink-500/30">
+                        <h3 class="font-bold text-pink-400 mb-4 flex items-center gap-2"><span>➕</span> Create Custom Program</h3>
                         <form onsubmit="addNewProgram(event)" class="flex flex-wrap gap-4 items-end">
-                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-1">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Category</label><select id="newProgCat" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option>Junior</option><option>Senior</option><option>General</option></select></div>
-                            <div><label class="block text-xs font-bold text-slate-400 mb-1">Type</label><select id="newProgType" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"><option>Stage</option><option>Non-Stage</option></select></div>
-                            <button type="submit" id="addProgBtn" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-2 rounded-lg h-[42px] transition">+ Add Program</button>
+                            <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Program Name</label><input type="text" id="newProgName" required class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:border-pink-500"></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Category</label><select id="newProgCat" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Junior</option><option>Senior</option><option>General</option></select></div>
+                            <div><label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Type</label><select id="newProgType" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none"><option>Stage</option><option>Non-Stage</option></select></div>
+                            <button type="submit" id="addProgBtn" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-2.5 rounded-lg transition">+ Add</button>
                         </form>
                     </div>
                 ` : '';
 
                 mainContent = addForm + `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
                 cats.forEach(cat => {
-                    mainContent += `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl h-fit">
-                        <h3 class="font-bold text-lg mb-3 text-white border-b border-slate-800 pb-2">${cat}</h3>
-                        <ul class="space-y-2">`;
+                    mainContent += `<div class="glass-card p-5 rounded-2xl h-fit">
+                        <h3 class="font-bold text-xl mb-4 text-white border-b border-slate-700 pb-2">${cat} Schedule</h3>
+                        <ul class="space-y-3">`;
                     state.programs.filter(p => p.cat === cat).forEach(p => {
-                        mainContent += `<li class="text-sm bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-slate-300">
+                        // Count assigned candidates
+                        const assignedCount = state.candidates.filter(c => c.assignedPrograms && c.assignedPrograms.includes(p.id)).length;
+                        
+                        mainContent += `<li class="text-sm bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50 flex justify-between items-center transition hover:border-slate-500">
                             <div>
-                                <span class="block text-white">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
-                                <span class="text-[10px] text-slate-500 uppercase tracking-wider">${p.type}</span>
+                                <span class="block text-white font-semibold">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
+                                <div class="flex gap-2 items-center mt-1">
+                                    <span class="text-[9px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded uppercase tracking-wider border border-slate-800">${p.type}</span>
+                                    <span class="text-[9px] text-indigo-300 bg-indigo-950/50 px-2 py-0.5 rounded uppercase font-bold border border-indigo-900/50">👤 ${assignedCount} Enrolled</span>
+                                </div>
                             </div>
                         </li>`;
                     });
@@ -606,59 +751,110 @@
             }
 
             if (state.tab === 'results') {
+                // Sort results by newest first
+                const sortedResults = [...state.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
                 mainContent = `
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        ${isAdmin ? `
-                            <div class="bg-slate-900 border border-emerald-500/30 p-6 rounded-2xl h-fit">
-                                <h3 class="font-bold text-emerald-400 mb-4 text-lg">Push Result to Cloud</h3>
-                                <form onsubmit="publishResult(event)">
-                                    <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-3 text-white outline-none">
-                                        <option value="">-- Choose Program --</option>
-                                        ${state.programs.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
-                                    </select>
-                                    <div id="rSelectors"></div>
-                                </form>
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        
+                        <!-- Publish Panel (Admin Only) -->
+                        <div class="lg:col-span-5 flex flex-col gap-6">
+                            ${isAdmin ? `
+                                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30">
+                                    <h3 class="font-bold text-emerald-400 mb-4 text-lg flex items-center gap-2"><span class="text-2xl">🏆</span> Publish Result</h3>
+                                    <form onsubmit="publishResult(event)">
+                                        <select id="rProg" onchange="populateResultDropdowns()" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-emerald-500 font-semibold">
+                                            <option value="">-- Choose Program --</option>
+                                            ${state.programs.map(p => `<option value="${p.id}">${p.name} (${p.cat})</option>`).join('')}
+                                        </select>
+                                        <div id="rSelectors"></div>
+                                    </form>
+                                </div>
+                            ` : `
+                                <div class="glass-card p-10 rounded-2xl flex flex-col items-center justify-center text-slate-400 text-center border border-slate-800">
+                                    <span class="text-5xl mb-4 opacity-50">🔒</span>
+                                    <h3 class="text-white font-bold text-xl mb-2">Restricted Access</h3>
+                                    <p class="text-sm">Only the Main Admin can publish official results.</p>
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Live Feed Panel -->
+                        <div class="lg:col-span-7 glass-card p-6 rounded-2xl flex flex-col h-[700px]">
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
+                                <h3 class="font-bold text-white text-xl">Live Result Feed</h3>
+                                <span class="bg-slate-900 text-slate-400 text-xs px-3 py-1 rounded-full font-bold border border-slate-700">${sortedResults.length} Published</span>
                             </div>
-                        ` : `
-                            <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl flex flex-col items-center justify-center text-slate-400 text-center"><span class="text-4xl mb-4">🔒</span><h3 class="text-white font-bold">Restricted Access</h3><p class="text-sm">Only the Main Admin can publish official results.</p></div>
-                        `}
-                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[600px]">
-                            <h3 class="font-bold text-white mb-4 text-lg">Cloud Results Database</h3>
-                            <div class="space-y-3 overflow-y-auto flex-1 pr-2">
-                                ${state.results.length === 0 ? `<div class="text-center p-6 text-slate-500">No results published yet.</div>` : ''}
-                                ${state.results.map(res => {
+                            
+                            <div class="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                                ${sortedResults.length === 0 ? `<div class="text-center p-10 text-slate-500">Waiting for first results...</div>` : ''}
+                                
+                                ${sortedResults.map((res, index) => {
                                     const prog = state.programs.find(p => p.id === res.progId);
                                     const c1 = state.candidates.find(c => c.id === res.first);
                                     const c2 = state.candidates.find(c => c.id === res.second);
                                     const c3 = state.candidates.find(c => c.id === res.third);
+                                    
+                                    // Highlight the newest result
+                                    const isNew = index === 0;
+                                    const cardClass = isNew ? "bg-slate-900 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)]" : "bg-slate-950/80 border-slate-800";
+
                                     return `
-                                        <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
-                                            <h4 class="font-bold text-white mb-3 border-b border-slate-800 pb-2">${prog?.name} <span class="text-xs text-slate-500 font-normal ml-1">(${prog?.cat})</span></h4>
-                                            <div class="text-sm space-y-2">
-                                                ${c1 ? `<div class="flex justify-between items-center"><p class="text-yellow-500 font-medium">🥇 1st: ${c1.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${state.teams[c1.team]?.name}</span></div>` : ''}
-                                                ${c2 ? `<div class="flex justify-between items-center"><p class="text-slate-300 font-medium">🥈 2nd: ${c2.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${state.teams[c2.team]?.name}</span></div>` : ''}
-                                                ${c3 ? `<div class="flex justify-between items-center"><p class="text-amber-700 font-medium">🥉 3rd: ${c3.name}</p> <span class="text-[10px] uppercase font-bold text-slate-500 border border-slate-700 px-2 py-0.5 rounded">${state.teams[c3.team]?.name}</span></div>` : ''}
+                                        <div class="border p-5 rounded-2xl relative overflow-hidden transition-all ${cardClass}">
+                                            ${isNew ? '<div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg tracking-widest animate-pulse">Newest</div>' : ''}
+                                            
+                                            <h4 class="font-bold text-white text-lg mb-4 flex items-center gap-2">
+                                                ${prog?.name} <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded uppercase font-bold tracking-wider">${prog?.cat}</span>
+                                            </h4>
+                                            
+                                            <div class="space-y-2">
+                                                ${c1 ? `
+                                                <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-yellow-500/20">
+                                                    <div class="flex items-center gap-2"><span class="text-xl">🥇</span> <p class="text-yellow-400 font-bold text-sm">${c1.name}</p></div> 
+                                                    <span class="text-[10px] uppercase font-bold text-slate-300 bg-slate-800 px-2 py-1 rounded">${state.teams[c1.team]?.name}</span>
+                                                </div>` : ''}
+                                                
+                                                ${c2 ? `
+                                                <div class="flex justify-between items-center bg-slate-900 p-2 rounded-lg border border-slate-700">
+                                                    <div class="flex items-center gap-2"><span class="text-lg">🥈</span> <p class="text-slate-300 font-semibold text-sm">${c2.name}</p></div> 
+                                                    <span class="text-[9px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">${state.teams[c2.team]?.name}</span>
+                                                </div>` : ''}
+                                                
+                                                ${c3 ? `
+                                                <div class="flex justify-between items-center bg-slate-900 p-2 rounded-lg border border-amber-900/30">
+                                                    <div class="flex items-center gap-2"><span class="text-lg">🥉</span> <p class="text-amber-600 font-semibold text-sm">${c3.name}</p></div> 
+                                                    <span class="text-[9px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">${state.teams[c3.team]?.name}</span>
+                                                </div>` : ''}
                                             </div>
                                         </div>
                                     `;
-                                }).reverse().join('')}
+                                }).join('')}
                             </div>
                         </div>
                     </div>`;
             }
 
             app.innerHTML = `
-                <header class="bg-slate-900 border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-md">
-                    <div>
-                        <h1 class="font-bold text-white text-lg tracking-tight">Aura Fest '26 <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-2 uppercase tracking-widest font-bold">Live</span></h1>
-                        <p class="text-xs text-slate-400 mt-0.5">Logged in as: <span class="font-bold text-white">${state.teams[state.role]?.name || state.role}</span></p>
+                <header class="bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 p-4 px-6 flex justify-between items-center sticky top-0 z-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-indigo-500 flex items-center justify-center font-black text-white text-xs">AF</div>
+                        <div>
+                            <h1 class="font-bold text-white text-lg tracking-tight leading-none mb-1">Aura Fest '26 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-1 uppercase tracking-widest font-black">Live</span></h1>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">User: <span class="text-white">${state.teams[state.role]?.name || state.role}</span></p>
+                        </div>
                     </div>
-                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition border border-slate-700">Logout</button>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition border border-slate-700">Sign Out</button>
                 </header>
                 ${navHtml}
-                <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+                <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
                     ${mainContent}
-                </main>`;
+                </main>
+                <!-- Background decoration -->
+                <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+                    <div class="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-pink-900/20 rounded-full blur-[120px]"></div>
+                    <div class="absolute top-[40%] -right-[10%] w-[40%] h-[40%] bg-indigo-900/20 rounded-full blur-[120px]"></div>
+                </div>
+            `;
         }
     </script>
 </body>
