@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ഓറ ഫെസ്റ്റ് 2026 - പ്രീമിയം പോർട്ടൽ</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <!-- മനോഹരമായ ആധുനിക മലയാളം ഫോണ്ട് (Anek Malayalam) & നമ്പറുകൾക്ക് (Outfit) -->
+    <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600;700;800&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- കളർ പേപ്പർ ആനിമേഷൻ (Confetti) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        body { font-family: 'Anek Malayalam', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        .num-font { font-family: 'Outfit', sans-serif; }
         .tab-active { border-bottom: 2px solid #ec4899; color: #ec4899; }
         .tab-inactive { border-bottom: 2px solid transparent; color: #94a3b8; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -16,6 +20,12 @@
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
         .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .tv-glow { filter: drop-shadow(0 0 25px rgba(255,255,255,0.2)); }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-popIn { animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
 </head>
 <body>
@@ -104,7 +114,7 @@
         const auth = getAuth(appInit);
         const db = getFirestore(appInit);
 
-        // --- ഡിഫോൾട്ട് ഡാറ്റ (പുതിയ ടീമുകളുടെ പേരുകൾ ഉൾപ്പെടെ) ---
+        // --- ഡിഫോൾട്ട് ഡാറ്റ ---
         const DEFAULT_TEAMS = {
             admin: { id: 'admin', name: 'Main Admin', pass: 'admin26' },
             teamA: { id: 'teamA', name: 'അൽ ബിറൂനി (Al-Biruni)', pass: 'biruni26', color: 'text-rose-400' },
@@ -157,31 +167,63 @@
             teams: DEFAULT_TEAMS,
             programs: DEFAULT_PROGRAMS,
             showChampions: false,
+            showPoints: false, // പുതിയ ടോഗിൾ: പോയിന്റ് നില
             dbReady: false,
             tvMode: isTV
+        };
+
+        let prevShowPoints = null;
+        let prevShowChampions = null;
+
+        // കളർ പേപ്പറുകൾ വിതറുന്ന ആനിമേഷൻ (Confetti)
+        window.fireConfetti = () => {
+            var duration = 3 * 1000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#ec4899', '#6366f1', '#10b981', '#f59e0b'] });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ec4899', '#6366f1', '#10b981', '#f59e0b'] });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
         };
 
         const initDB = async () => {
             try { 
                 await signInAnonymously(auth); 
             } catch (e) { 
-                window.showAlert("Database Connection Failed. Check Firebase Auth.", "error");
+                window.showAlert("Database Connection Failed.", "error");
             }
         };
 
         onAuthStateChanged(auth, (user) => {
             state.user = user;
             if (user) {
-                // ശ്രദ്ധിക്കുക: പുതിയ പേരുകൾ വരാൻ വേണ്ടി 'config_v3' ആക്കി മാറ്റി
-                const configRef = doc(db, 'settings', 'config_v3');
+                const configRef = doc(db, 'settings', 'config_v4'); // ഡാറ്റ ക്ലിയർ ആയി ലഭിക്കാൻ v4 ആക്കി
                 onSnapshot(configRef, (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
                         state.teams = data.teams || DEFAULT_TEAMS;
                         state.programs = data.programs || DEFAULT_PROGRAMS;
                         state.showChampions = data.showChampions || false;
+                        state.showPoints = data.showPoints || false;
+
+                        // ആനിമേഷൻ ട്രിഗർ ചെയ്യാനുള്ള ലോജിക്
+                        if (prevShowPoints !== null && !prevShowPoints && state.showPoints && state.tvMode) {
+                            window.fireConfetti();
+                        }
+                        if (prevShowChampions !== null && !prevShowChampions && state.showChampions && state.tvMode) {
+                            window.fireConfetti();
+                        }
+
+                        prevShowPoints = state.showPoints;
+                        prevShowChampions = state.showChampions;
                     } else {
-                        setDoc(configRef, { teams: DEFAULT_TEAMS, programs: DEFAULT_PROGRAMS, showChampions: false });
+                        setDoc(configRef, { teams: DEFAULT_TEAMS, programs: DEFAULT_PROGRAMS, showChampions: false, showPoints: false });
+                        prevShowPoints = false;
+                        prevShowChampions = false;
                     }
                     render();
                 });
@@ -307,10 +349,10 @@
             });
 
             if (stageCount > 3) {
-                return window.showAlert(`പരിധി ലംഘിച്ചു! പരമാവധി 3 Stage പരിപാടികൾ. (നിങ്ങൾ ${stageCount} എണ്ണം തിരഞ്ഞെടുത്തു)`, "error");
+                return window.showAlert(`പരിധി ലംഘിച്ചു! പരമാവധി 3 Stage പരിപാടികൾ.`, "error");
             }
             if (nonStageCount > 5) {
-                return window.showAlert(`പരിധി ലംഘിച്ചു! പരമാവധി 5 Non-Stage പരിപാടികൾ. (നിങ്ങൾ ${nonStageCount} എണ്ണം തിരഞ്ഞെടുത്തു)`, "error");
+                return window.showAlert(`പരിധി ലംഘിച്ചു! പരമാവധി 5 Non-Stage പരിപാടികൾ.`, "error");
             }
             // ----------------------------------------
 
@@ -398,10 +440,19 @@
             render();
         };
 
+        // പോയിന്റ് നില ഹൈഡ്/ഷോ ചെയ്യാനുള്ള ടോഗിൾ
+        window.togglePoints = async () => {
+            try {
+                await updateDoc(doc(db, 'settings', 'config_v4'), { showPoints: !state.showPoints });
+                window.showAlert(state.showPoints ? "TV യിൽ പോയിന്റ് നില മറച്ചു!" : "TV യിൽ പോയിന്റ് നില പബ്ലിഷ് ചെയ്തു!");
+            } catch(e) {
+                window.showAlert("മാറ്റം വരുത്താൻ സാധിച്ചില്ല.", "error");
+            }
+        };
+
         window.toggleChampions = async () => {
             try {
-                // config_v3 ലേക്ക് അപ്ഡേറ്റ് ചെയ്യുന്നു
-                await updateDoc(doc(db, 'settings', 'config_v3'), { showChampions: !state.showChampions });
+                await updateDoc(doc(db, 'settings', 'config_v4'), { showChampions: !state.showChampions });
                 window.showAlert(state.showChampions ? "TV യിൽ കലാപ്രതിഭകളെ മറച്ചു!" : "TV യിൽ കലാപ്രതിഭകളെ കാണിക്കുന്നു!");
             } catch(e) {
                 window.showAlert("മാറ്റം വരുത്താൻ സാധിച്ചില്ല.", "error");
@@ -414,7 +465,7 @@
                 const updatedTeams = { ...state.teams };
                 updatedTeams[teamKey].name = newName;
                 try {
-                    await updateDoc(doc(db, 'settings', 'config_v3'), { teams: updatedTeams });
+                    await updateDoc(doc(db, 'settings', 'config_v4'), { teams: updatedTeams });
                     window.showAlert("ടീമിന്റെ പേര് മാറ്റി!");
                 } catch(e) { window.showAlert("മാറ്റാൻ സാധിച്ചില്ല.", "error"); }
             });
@@ -425,7 +476,7 @@
                 if(!newName || newName === currentName) return;
                 const updatedProgs = state.programs.map(p => p.id === progId ? { ...p, name: newName } : p);
                 try {
-                    await updateDoc(doc(db, 'settings', 'config_v3'), { programs: updatedProgs });
+                    await updateDoc(doc(db, 'settings', 'config_v4'), { programs: updatedProgs });
                     window.showAlert("പേര് മാറ്റി!");
                 } catch(e) { window.showAlert("മാറ്റാൻ സാധിച്ചില്ല.", "error"); }
             });
@@ -453,7 +504,7 @@
             const updatedProgs = [...state.programs, newProg];
             
             try {
-                await updateDoc(doc(db, 'settings', 'config_v3'), { programs: updatedProgs });
+                await updateDoc(doc(db, 'settings', 'config_v4'), { programs: updatedProgs });
                 window.showAlert("പുതിയ മത്സരം ചേർത്തു!");
                 e.target.reset();
             } catch(err) { window.showAlert("ചേർക്കാൻ സാധിച്ചില്ല", "error"); }
@@ -467,11 +518,9 @@
             const cat = document.getElementById('cCat').value;
             const team = state.role === 'admin' ? document.getElementById('cTeam').value : state.role;
 
-            // --- AUTO CHEST NUMBER GENERATION ---
             const prefix = cat === 'Junior' ? 'J' : 'S';
             const catCount = state.candidates.filter(c => c.cat === cat).length;
             const regNo = prefix + (101 + catCount);
-            // ------------------------------------
 
             const btn = document.getElementById('addCandBtn');
             btn.innerText = "Saving..."; btn.disabled = true;
@@ -527,7 +576,6 @@
                 optionsHtml += `</optgroup>`;
             }
 
-            // DYNAMIC POINTS TEXT
             const fPts = prog.isGroup ? 15 : 10;
             const sPts = prog.isGroup ? 10 : 5;
             const tPts = prog.isGroup ? 5 : 3;
@@ -561,6 +609,7 @@
                     window.showAlert("റിസൾട്ട് പ്രസിദ്ധീകരിച്ചു!");
                     document.getElementById('rProg').value = "";
                     document.getElementById('rSelectors').innerHTML = "";
+                    if(state.showPoints || state.showChampions) window.fireConfetti(); // ഫയർ കൺഫെറ്റി
                 } catch(e) { window.showAlert("പരാജയപ്പെട്ടു: " + e.message, "error"); }
             };
 
@@ -584,7 +633,6 @@
                 const c2 = state.candidates.find(c => c.id === res.second);
                 const c3 = state.candidates.find(c => c.id === res.third);
                 
-                // GROUP EVENTS: 15, 10, 5 | INDIVIDUAL: 10, 5, 3
                 const pts = prog?.isGroup ? {f:15, s:10, t:5} : {f:10, s:5, t:3};
 
                 if (c1 && scores[c1.team] !== undefined) scores[c1.team] += pts.f;
@@ -600,7 +648,6 @@
             
             state.results.forEach(res => {
                 const prog = state.programs.find(p => p.id === res.progId);
-                // GROUP പരിപാടികളുടെ മാർക്ക് കലാപ്രതിഭയ്ക്ക് നൽകില്ല
                 if(prog?.isGroup) return; 
 
                 const c1 = state.candidates.find(c => c.id === res.first);
@@ -648,8 +695,8 @@
                     tvLatestHtml = `
                         <div class="h-full flex flex-col justify-center items-center bg-slate-900/50 rounded-3xl border border-emerald-500/30 p-8 relative overflow-hidden transition-all duration-700">
                             <div class="absolute inset-0 bg-emerald-500/5 blur-[100px]"></div>
-                            <div class="bg-emerald-500 text-slate-950 text-sm font-black uppercase px-6 py-2 rounded-full tracking-widest mb-6 animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.5)]">🔥 പുതിയ റിസൾട്ട് (Latest Result) 🔥</div>
-                            <h4 class="font-black text-white mb-10 ${state.showChampions ? 'text-4xl' : 'text-5xl'} tracking-tight text-center">${prog?.name} <span class="text-sm text-slate-400 font-bold uppercase tracking-widest bg-slate-950 px-3 py-1 rounded border border-slate-800 align-middle ml-3">${prog?.cat}</span></h4>
+                            <div class="bg-emerald-500 text-slate-950 text-sm font-black uppercase px-6 py-2 rounded-full tracking-widest mb-6 shadow-[0_0_20px_rgba(16,185,129,0.5)]">🔥 പുതിയ റിസൾട്ട് (Latest Result) 🔥</div>
+                            <h4 class="font-bold text-white mb-10 ${state.showChampions ? 'text-4xl' : 'text-5xl'} tracking-tight text-center leading-tight">${prog?.name} <span class="text-sm text-slate-400 font-bold uppercase tracking-widest bg-slate-950 px-3 py-1 rounded border border-slate-800 align-middle ml-3 num-font">${prog?.cat}</span></h4>
                             
                             <div class="flex items-end justify-center gap-6 w-full max-w-3xl z-10">
                                 <!-- 2nd Place -->
@@ -659,9 +706,9 @@
                                     <p class="text-xs font-black tracking-widest text-slate-500 mt-2">${c2 ? state.teams[c2.team]?.name : '-'}</p>
                                 </div>
                                 <!-- 1st Place -->
-                                <div class="flex-[1.2] bg-yellow-500/10 border-2 border-yellow-500/50 p-8 rounded-2xl text-center shadow-[0_0_40px_rgba(234,179,8,0.2)] transform -translate-y-12">
+                                <div class="flex-[1.2] bg-yellow-500/10 border-2 border-yellow-500/50 p-8 rounded-2xl text-center shadow-[0_0_40px_rgba(234,179,8,0.2)] transform -translate-y-12 animate-popIn">
                                     <span class="text-7xl block mb-3 drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]">🥇</span>
-                                    <p class="font-black text-yellow-400 text-3xl leading-tight truncate px-2">${c1 ? c1.name : '-'}</p>
+                                    <p class="font-bold text-yellow-400 text-3xl leading-tight truncate px-2">${c1 ? c1.name : '-'}</p>
                                     <p class="text-sm font-black tracking-widest text-yellow-600 mt-3">${c1 ? state.teams[c1.team]?.name : '-'}</p>
                                 </div>
                                 <!-- 3rd Place -->
@@ -677,7 +724,7 @@
 
                 // Champions view logic
                 let championsGridHtml = state.showChampions ? `
-                    <div class="h-full flex flex-col gap-6 animate-[fadeIn_1s_ease-in-out]">
+                    <div class="h-full flex flex-col gap-6 animate-popIn">
                         <div class="bg-slate-900/80 rounded-3xl border border-slate-700/50 p-6 flex-1 flex flex-col justify-center">
                             <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-3"><span class="text-3xl">🌟</span> ജൂനിയർ കലാപ്രതിഭ</h3>
                             <div class="flex justify-around items-end gap-2 h-full pb-2">
@@ -688,7 +735,7 @@
                                             <p class="text-[10px] font-black text-slate-400 mt-1">${state.teams[c.team]?.name}</p>
                                         </div>
                                         <div class="w-full bg-slate-800 rounded-t-xl border-t-4 ${i===0?'border-yellow-500 h-24 bg-yellow-500/10':(i===1?'border-slate-400 h-16 bg-slate-400/10':'border-amber-700 h-12 bg-amber-700/10')} flex flex-col items-center justify-center">
-                                            <span class="text-xl font-black text-white">${c.score} <span class="text-xs text-slate-500">pts</span></span>
+                                            <span class="text-xl font-black num-font text-white">${c.score} <span class="text-xs text-slate-500 font-sans">pts</span></span>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -704,7 +751,7 @@
                                             <p class="text-[10px] font-black text-slate-400 mt-1">${state.teams[c.team]?.name}</p>
                                         </div>
                                         <div class="w-full bg-slate-800 rounded-t-xl border-t-4 ${i===0?'border-yellow-500 h-24 bg-yellow-500/10':(i===1?'border-slate-400 h-16 bg-slate-400/10':'border-amber-700 h-12 bg-amber-700/10')} flex flex-col items-center justify-center">
-                                            <span class="text-xl font-black text-white">${c.score} <span class="text-xs text-slate-500">pts</span></span>
+                                            <span class="text-xl font-black num-font text-white">${c.score} <span class="text-xs text-slate-500 font-sans">pts</span></span>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -713,7 +760,6 @@
                     </div>
                 ` : '';
 
-                // TV Mode ൽ ഇനി ബട്ടണുകൾ ഇല്ല (No exit buttons here)
                 app.innerHTML = `
                     <style>@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }</style>
                     <div class="h-screen w-screen bg-[#020617] text-white flex flex-col p-6 pb-8 overflow-hidden relative">
@@ -725,34 +771,40 @@
 
                         <!-- Header -->
                         <div class="flex justify-center items-center mb-6 px-4">
-                            <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-indigo-500 tracking-widest uppercase">ഓറ ഫെസ്റ്റ് '26 തത്സമയ പോയിന്റ് നില</h1>
+                            <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-indigo-500 tracking-widest uppercase">ഓറ ഫെസ്റ്റ് '26 തത്സമയ ഫലങ്ങൾ</h1>
                         </div>
 
                         <!-- Top Half: Giant Battle Board -->
                         <div class="flex justify-between items-center px-12 mb-8 flex-1 mt-4">
                             <div class="flex-1 text-center relative">
-                                ${leadingTeam === 'teamA' ? '<div class="absolute -top-12 left-1/2 -translate-x-1/2 text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,1)]">👑</div>' : ''}
-                                <h2 class="text-5xl font-black text-rose-400 tracking-widest mb-4 tv-glow">${state.teams.teamA.name}</h2>
-                                <div class="text-[12rem] font-black leading-none tabular-nums text-white drop-shadow-[0_0_40px_rgba(244,63,94,0.4)]">${scores.teamA}</div>
+                                ${(state.showPoints && leadingTeam === 'teamA') ? '<div class="absolute -top-12 left-1/2 -translate-x-1/2 text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,1)] z-20">👑</div>' : ''}
+                                <h2 class="text-5xl font-bold text-rose-400 tracking-widest mb-4 tv-glow">${state.teams.teamA.name}</h2>
+                                <div class="text-[12rem] font-black leading-none num-font text-white drop-shadow-[0_0_40px_rgba(244,63,94,0.4)] transition-all duration-1000">
+                                    ${state.showPoints ? `<span class="animate-popIn inline-block">${scores.teamA}</span>` : '<span class="text-[8rem] text-rose-500/20 animate-pulse">🔒</span>'}
+                                </div>
                             </div>
                             
                             <div class="w-32 h-32 bg-slate-950 border-8 border-slate-800 rounded-full flex items-center justify-center shadow-2xl flex-shrink-0 z-10">
-                                <span class="text-4xl font-black italic text-slate-500">VS</span>
+                                <span class="text-4xl font-black italic num-font text-slate-500">VS</span>
                             </div>
 
                             <div class="flex-1 text-center relative">
-                                ${leadingTeam === 'teamB' ? '<div class="absolute -top-12 left-1/2 -translate-x-1/2 text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,1)]">👑</div>' : ''}
-                                <h2 class="text-5xl font-black text-indigo-400 tracking-widest mb-4 tv-glow">${state.teams.teamB.name}</h2>
-                                <div class="text-[12rem] font-black leading-none tabular-nums text-white drop-shadow-[0_0_40px_rgba(99,102,241,0.4)]">${scores.teamB}</div>
+                                ${(state.showPoints && leadingTeam === 'teamB') ? '<div class="absolute -top-12 left-1/2 -translate-x-1/2 text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,1)] z-20">👑</div>' : ''}
+                                <h2 class="text-5xl font-bold text-indigo-400 tracking-widest mb-4 tv-glow">${state.teams.teamB.name}</h2>
+                                <div class="text-[12rem] font-black leading-none num-font text-white drop-shadow-[0_0_40px_rgba(99,102,241,0.4)] transition-all duration-1000">
+                                    ${state.showPoints ? `<span class="animate-popIn inline-block">${scores.teamB}</span>` : '<span class="text-[8rem] text-indigo-500/20 animate-pulse">🔒</span>'}
+                                </div>
                             </div>
                         </div>
 
                         <!-- Tension Bar -->
                         <div class="w-full px-12 mb-8">
                             <div class="h-8 w-full bg-slate-950 rounded-full overflow-hidden flex border-2 border-slate-800 shadow-inner relative">
+                                ${state.showPoints ? `
                                 <div class="absolute left-1/2 top-0 bottom-0 w-2 bg-black z-20 transform -translate-x-1/2"></div>
                                 <div class="h-full bg-gradient-to-r from-rose-700 to-rose-500 transition-all duration-1000 ease-out" style="width: ${teamAPct}%"></div>
                                 <div class="h-full bg-gradient-to-l from-indigo-700 to-indigo-500 transition-all duration-1000 ease-out" style="width: ${teamBPct}%"></div>
+                                ` : `<div class="h-full w-full bg-slate-800 flex items-center justify-center"><span class="text-xs font-bold tracking-widest text-slate-500 uppercase">പോയിന്റുകൾ മറച്ചിരിക്കുന്നു</span></div>`}
                             </div>
                         </div>
 
@@ -785,8 +837,8 @@
                         <form onsubmit="handleLogin(event)" class="space-y-5">
                             <div>
                                 <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">ലോഗിൻ ഐഡി</label>
-                                <select id="loginRole" class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500 transition">
-                                    <option value="admin">മെയിൻ അഡ്മിൻ</option>
+                                <select id="loginRole" class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500 transition font-bold">
+                                    <option value="admin">മെയിൻ അഡ്മിൻ (Main Admin)</option>
                                     <option value="teamA">ടീം: ${state.teams.teamA.name}</option>
                                     <option value="teamB">ടീം: ${state.teams.teamB.name}</option>
                                 </select>
@@ -838,7 +890,7 @@
                         <div class="mt-12 p-1 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 relative max-w-3xl mx-auto shadow-lg shadow-emerald-500/10">
                             <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-widest z-10 shadow-lg shadow-emerald-500/30 animate-pulse">🔥 പുതിയ റിസൾട്ട് 🔥</div>
                             <div class="bg-slate-900/90 rounded-xl p-5 backdrop-blur-md">
-                                <h4 class="text-center font-black text-white mb-5 text-xl tracking-tight">${prog?.name} <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 align-middle ml-2">${prog?.cat}</span></h4>
+                                <h4 class="text-center font-bold text-white mb-5 text-xl tracking-tight">${prog?.name} <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 align-middle ml-2 num-font">${prog?.cat}</span></h4>
                                 <div class="flex flex-col md:flex-row justify-center items-end gap-3 px-2">
                                     <div class="flex-1 bg-slate-950 border border-slate-700 p-4 rounded-xl text-center w-full transform md:-translate-y-2">
                                         <span class="text-3xl block mb-1 drop-shadow-md">🥈</span>
@@ -847,7 +899,7 @@
                                     </div>
                                     <div class="flex-[1.2] bg-yellow-500/10 border border-yellow-500/40 p-5 rounded-xl text-center w-full shadow-[0_0_20px_rgba(234,179,8,0.15)] relative z-10 transform md:-translate-y-6">
                                         <span class="text-4xl block mb-2 drop-shadow-lg">🥇</span>
-                                        <p class="font-black text-yellow-400 text-base leading-tight">${c1 ? c1.name : '-'}</p>
+                                        <p class="font-bold text-yellow-400 text-base leading-tight">${c1 ? c1.name : '-'}</p>
                                         <p class="text-[10px] font-black tracking-widest text-yellow-600 mt-2">${c1 ? state.teams[c1.team]?.name : '-'}</p>
                                     </div>
                                     <div class="flex-1 bg-slate-950 border border-amber-900/30 p-4 rounded-xl text-center w-full transform md:-translate-y-2">
@@ -862,10 +914,13 @@
                 }
 
                 mainContent = `
-                    <div class="flex justify-end mb-4">
+                    <div class="flex flex-wrap justify-end gap-3 mb-6">
                         ${isAdmin ? `
-                            <button onclick="toggleChampions()" class="${state.showChampions ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/50' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/50'} text-white font-bold px-6 py-3 rounded-xl transition shadow-lg flex items-center gap-2">
-                                <span class="text-xl">📺</span> ${state.showChampions ? 'TV യിൽ കലാപ്രതിഭകളെ മറയ്ക്കുക' : 'TV യിൽ കലാപ്രതിഭകളെ കാണിക്കുക!'}
+                            <button onclick="togglePoints()" class="${state.showPoints ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/50'} text-white font-bold px-5 py-2 rounded-xl transition shadow-lg flex items-center gap-2 text-sm">
+                                <span class="text-lg">📊</span> ${state.showPoints ? 'പോയിന്റ് നില മറയ്ക്കുക' : 'പോയിന്റ് നില കാണിക്കുക!'}
+                            </button>
+                            <button onclick="toggleChampions()" class="${state.showChampions ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/50' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/50'} text-white font-bold px-5 py-2 rounded-xl transition shadow-lg flex items-center gap-2 text-sm">
+                                <span class="text-lg">👑</span> ${state.showChampions ? 'കലാപ്രതിഭ മറയ്ക്കുക' : 'കലാപ്രതിഭ കാണിക്കുക!'}
                             </button>
                         ` : ''}
                     </div>
@@ -881,14 +936,14 @@
                                 <div class="relative bg-slate-900/80 border-2 ${leadingTeam === 'teamA' ? 'border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.2)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
                                     ${leadingTeam === 'teamA' ? '<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-5xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">👑</div>' : ''}
                                     ${isAdmin ? `<button onclick="editTeamName('teamA', '${state.teams.teamA.name}')" class="absolute top-4 right-4 text-slate-500 hover:text-white text-sm bg-slate-800/80 px-2 py-1 rounded-lg z-20 transition">✏️ Edit</button>` : ''}
-                                    <h3 class="text-2xl md:text-3xl font-black text-rose-400 mb-2 tracking-wide drop-shadow-md">${state.teams.teamA.name}</h3>
-                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter">${scores.teamA}</div>
+                                    <h3 class="text-2xl md:text-3xl font-bold text-rose-400 mb-2 tracking-wide drop-shadow-md">${state.teams.teamA.name}</h3>
+                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black num-font text-white tabular-nums tracking-tighter">${scores.teamA}</div>
                                 </div>
                             </div>
                             <!-- VS -->
                             <div class="flex-shrink-0 z-20 my-4 md:my-0">
                                 <div class="w-16 h-16 bg-slate-950 border-4 border-slate-800 rounded-full flex items-center justify-center shadow-2xl relative transform hover:scale-110 transition duration-300">
-                                    <span class="text-xl font-black italic text-slate-400 relative z-10">VS</span>
+                                    <span class="text-xl font-black italic num-font text-slate-400 relative z-10">VS</span>
                                 </div>
                             </div>
                             <!-- Team B -->
@@ -897,15 +952,15 @@
                                 <div class="relative bg-slate-900/80 border-2 ${leadingTeam === 'teamB' ? 'border-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.2)] scale-105' : 'border-slate-800'} rounded-3xl p-8 text-center transform transition duration-500">
                                     ${leadingTeam === 'teamB' ? '<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-5xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">👑</div>' : ''}
                                     ${isAdmin ? `<button onclick="editTeamName('teamB', '${state.teams.teamB.name}')" class="absolute top-4 right-4 text-slate-500 hover:text-white text-sm bg-slate-800/80 px-2 py-1 rounded-lg z-20 transition">✏️ Edit</button>` : ''}
-                                    <h3 class="text-2xl md:text-3xl font-black text-indigo-400 mb-2 tracking-wide drop-shadow-md">${state.teams.teamB.name}</h3>
-                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black text-white tabular-nums tracking-tighter">${scores.teamB}</div>
+                                    <h3 class="text-2xl md:text-3xl font-bold text-indigo-400 mb-2 tracking-wide drop-shadow-md">${state.teams.teamB.name}</h3>
+                                    <div class="text-[5rem] md:text-[7rem] leading-none font-black num-font text-white tabular-nums tracking-tighter">${scores.teamB}</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Tension Bar -->
                         <div class="mt-14 w-full max-w-4xl mx-auto relative z-10">
-                            <div class="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-2">
+                            <div class="flex justify-between text-[10px] font-black num-font text-slate-500 uppercase tracking-widest mb-3 px-2">
                                 <span class="text-rose-400">${teamAPct.toFixed(1)}% DOMINANCE</span>
                                 <span class="text-slate-600">POWER BALANCE</span>
                                 <span class="text-indigo-400">${teamBPct.toFixed(1)}% DOMINANCE</span>
@@ -935,7 +990,7 @@
                                                 <p class="text-[10px] font-bold ${state.teams[c.team]?.color}">${state.teams[c.team]?.name}</p>
                                             </div>
                                         </div>
-                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700">${c.score} <span class="text-xs text-slate-500 font-normal">pts</span></span>
+                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700 num-font">${c.score} <span class="text-xs text-slate-500 font-sans font-normal">pts</span></span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -953,7 +1008,7 @@
                                                 <p class="text-[10px] font-bold ${state.teams[c.team]?.color}">${state.teams[c.team]?.name}</p>
                                             </div>
                                         </div>
-                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700">${c.score} <span class="text-xs text-slate-500 font-normal">pts</span></span>
+                                        <span class="bg-slate-950 text-white font-black px-3 py-1 rounded-lg border border-slate-700 num-font">${c.score} <span class="text-xs text-slate-500 font-sans font-normal">pts</span></span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -1004,7 +1059,7 @@
                                                     <div class="font-bold text-white">${c.name}</div>
                                                     <div class="text-xs font-mono text-pink-400">${c.regNo}</div>
                                                 </td>
-                                                <td class="p-4 text-slate-300 font-medium">${c.cat}</td>
+                                                <td class="p-4 text-slate-300 font-medium num-font">${c.cat}</td>
                                                 <td class="p-4 ${state.teams[c.team]?.color} font-bold">${state.teams[c.team]?.name}</td>
                                                 <td class="p-4">
                                                     ${canManage 
@@ -1045,7 +1100,7 @@
                 mainContent = addForm + `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
                 cats.forEach(cat => {
                     mainContent += `<div class="glass-card p-5 rounded-2xl h-fit border-t border-slate-700/50">
-                        <h3 class="font-bold text-xl mb-4 text-white border-b border-slate-700 pb-2 flex justify-between items-center">${cat} Schedule</h3>
+                        <h3 class="font-bold text-xl mb-4 text-white border-b border-slate-700 pb-2 flex justify-between items-center num-font">${cat} Schedule</h3>
                         <ul class="space-y-3">`;
                     state.programs.filter(p => p.cat === cat).forEach(p => {
                         
@@ -1055,7 +1110,7 @@
                         
                         mainContent += `<li class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50 flex justify-between items-center transition hover:border-slate-500">
                             <div class="w-full">
-                                <span class="block text-white font-semibold text-sm mb-1">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
+                                <span class="block text-white font-bold text-sm mb-1">${p.name} ${isAdmin ? `<button onclick="editProgramName('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="text-xs ml-2 text-slate-500 hover:text-pink-400">✏️</button>` : ''}</span>
                                 <div class="flex justify-between items-center w-full">
                                     <div class="flex gap-1">
                                         <span class="text-[9px] ${p.type==='Stage'?'text-pink-400':'text-indigo-400'} bg-slate-950 px-2 py-0.5 rounded uppercase tracking-wider border border-slate-800">${p.type}</span>
@@ -1121,7 +1176,7 @@
                                             ${isAdmin ? `<button onclick="deleteResult('${res.progId}')" class="absolute top-3 right-4 ${isNew?'mt-4':''} text-red-400 hover:text-white bg-red-950/50 hover:bg-red-600 border border-red-500/30 px-3 py-1 rounded-lg text-xs font-bold transition z-10">Delete</button>` : ''}
 
                                             <h4 class="font-bold text-white text-lg mb-4 flex items-center gap-2">
-                                                ${prog?.name} <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded uppercase font-bold tracking-wider">${prog?.cat}</span>
+                                                ${prog?.name} <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded uppercase font-bold tracking-wider num-font">${prog?.cat}</span>
                                                 ${prog?.isGroup ? `<span class="text-[9px] text-amber-400 bg-amber-950 px-2 py-0.5 rounded uppercase font-bold tracking-wider border border-amber-800">👥 Group</span>` : ''}
                                             </h4>
                                             
@@ -1157,11 +1212,11 @@
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-indigo-500 flex items-center justify-center font-black text-white text-xs shadow-lg shadow-pink-500/20">AF</div>
                         <div>
-                            <h1 class="font-bold text-white text-lg tracking-tight leading-none mb-1">ഓറ ഫെസ്റ്റ് '26 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-1 uppercase tracking-widest font-black shadow-sm shadow-emerald-500/20">Live</span></h1>
+                            <h1 class="font-bold text-white text-lg tracking-tight leading-none mb-1 num-font">Aura Fest '26 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/50 align-middle ml-1 uppercase tracking-widest font-black shadow-sm shadow-emerald-500/20">Live</span></h1>
                             <p class="text-[10px] text-slate-400 font-semibold">ലോഗിൻ: <span class="text-white">${state.teams[state.role]?.name || state.role}</span></p>
                         </div>
                     </div>
-                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition border border-slate-700 shadow-sm">Sign Out</button>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition border border-slate-700 shadow-sm num-font">Sign Out</button>
                 </header>
                 ${navHtml}
                 <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
